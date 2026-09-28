@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de-CH">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Atem · Pause</title>
+    <link rel="stylesheet" href="./bundle.css" />
+  </head>
+  <body>
+    <div class="backdrop" aria-hidden="true"><i class="backdrop__glow"></i></div>
+    <div class="dim" aria-hidden="true"></div>
+    <canvas id="gl" class="gl" aria-hidden="true"></canvas>
+    <div class="grain" aria-hidden="true"></div>
+
+    <div class="stage" id="stage">
+      <header class="top">
+        <div class="brand"><span class="brand__logo" aria-hidden="true"></span>Atem</div>
+        <div class="top__right">
+          <span class="label" id="kind">Pause</span>
+          <span class="top__time tabular" id="remaining">00:00</span>
+        </div>
+      </header>
+
+      <div class="phase" id="phase" aria-live="polite">
+        <span class="phase__word display" id="phase-word"></span>
+        <span class="phase__count tabular" id="phase-count"></span>
+      </div>
+
+      <section class="copy" id="copy">
+        <p class="label copy__kicker" id="kicker"></p>
+        <h1 class="copy__title display" id="title"></h1>
+        <p class="copy__text" id="text"></p>
+      </section>
+
+      <footer class="bottom" id="bottom">
+        <ol class="timeline" id="timeline"></ol>
+        <div class="controls">
+          <button class="btn btn--ghost" id="snooze" hidden></button>
+          <button class="btn btn--ghost hold" id="skip">
+            <span class="hold__fill"></span>
+            <span class="hold__label" id="skip-label">Überspringen</span>
+          </button>
+        </div>
+      </footer>
+
+      <section class="done" id="done" hidden>
+        <p class="label">Pause beendet</p>
+        <h1 class="done__title display">Schön <em>gemacht.</em></h1>
+        <p class="done__text" id="done-text">&nbsp;</p>
+        <button class="btn btn--primary btn--lg" id="back">
+          Zurück an die Arbeit <span class="btn__arrow" aria-hidden="true">→</span>
+        </button>
+        <p class="done__hint label">Enter ↵</p>
+      </section>
+    </div>
+
+    <script src="./bundle.js"></script>
+  </body>
+</html>

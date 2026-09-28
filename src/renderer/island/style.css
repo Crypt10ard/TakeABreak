@@ -1,0 +1,223 @@
+@import '../shared/base.css';
+
+html,
+body {
+  background: transparent;
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+}
+
+.island {
+  position: relative;
+  height: 66px;
+  min-width: 66px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #0a0b0d;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.08),
+    0 18px 50px rgb(0 0 0 / 0.45),
+    0 4px 14px rgb(0 0 0 / 0.35);
+  opacity: 0;
+  transform: translateY(-80px);
+  will-change: transform, width;
+}
+
+/* A faint aurora in the palette colours lives inside the capsule. */
+.island::before {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background:
+    radial-gradient(40% 60% at 15% 50%, color-mix(in srgb, var(--a1) 22%, transparent), transparent),
+    radial-gradient(40% 70% at 90% 40%, color-mix(in srgb, var(--a3) 14%, transparent), transparent);
+  opacity: 0.8;
+  animation: drift 9s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes drift {
+  to {
+    transform: translateX(8%) rotate(8deg);
+  }
+}
+
+.island__body {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 100%;
+  padding: 0 11px 0 11px;
+  white-space: nowrap;
+}
+
+.island__icon {
+  position: relative;
+  display: grid;
+  flex: none;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+}
+
+.island__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-right: 6px;
+  line-height: 1.25;
+}
+
+.island__title {
+  color: var(--ink);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.island__sub {
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+.island__sub b {
+  color: var(--ink-2);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.island__actions {
+  display: flex;
+  gap: 6px;
+  padding-left: 4px;
+}
+
+.island__actions .btn {
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
+}
+
+.island__close {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ink-3);
+  background: rgb(255 255 255 / 0.05);
+  transition:
+    background 0.2s,
+    color 0.2s,
+    transform 0.3s var(--ease-spring);
+}
+
+.island__close:hover {
+  background: rgb(255 255 255 / 0.1);
+  color: var(--ink);
+}
+
+.island__close:active {
+  transform: scale(0.9);
+}
+
+.island__close svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+/* icons */
+.ring {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+
+.ring__track,
+.ring__fill {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ring__track {
+  stroke: rgb(255 255 255 / 0.1);
+}
+
+.ring__fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-dasharray: 125.66;
+}
+
+.ring--warm .ring__fill {
+  stroke: var(--warm);
+}
+
+.icon-count {
+  position: relative;
+  color: var(--ink);
+  font: 600 12px var(--mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-orb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, var(--a1), var(--a2) 60%, var(--a3));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--a1) 55%, transparent);
+  animation: orb 6s ease-in-out infinite;
+}
+
+@keyframes orb {
+  50% {
+    transform: scale(0.82);
+  }
+}
+
+.icon-eye {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-eye .pupil {
+  fill: var(--accent);
+  stroke: none;
+}
+
+.icon-check {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 24;
+}
+
+.icon-pause {
+  display: flex;
+  gap: 5px;
+}
+
+.icon-pause i {
+  width: 4px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--ink-2);
+}

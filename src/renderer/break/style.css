@@ -1,0 +1,333 @@
+@import '../shared/base.css';
+
+html,
+body {
+  background: transparent;
+}
+
+body {
+  cursor: default;
+}
+
+body.is-idle,
+body.is-idle * {
+  cursor: none !important;
+}
+
+/* The desktop stays visible behind the fade-in, then sinks into calm darkness. */
+.backdrop {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(130% 100% at 50% 42%, rgb(11 13 16 / 0.9) 0%, rgb(5 6 8 / 0.975) 62%);
+  opacity: 0;
+}
+
+.backdrop__glow {
+  position: absolute;
+  top: 44%;
+  left: 50%;
+  width: 90vmax;
+  height: 90vmax;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--a1) 14%, transparent), transparent);
+  transform: translate(-50%, -50%);
+  animation: glow 14s ease-in-out infinite alternate;
+}
+
+@keyframes glow {
+  from {
+    transform: translate(-54%, -48%) scale(0.9);
+  }
+  to {
+    transform: translate(-46%, -52%) scale(1.08);
+  }
+}
+
+.dim {
+  position: fixed;
+  inset: 0;
+  background: #020203;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.gl {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+}
+
+.gl--fallback {
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--a1) 45%, transparent), transparent 18%);
+}
+
+.grain {
+  opacity: 0.045;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+  opacity: 0;
+}
+
+/* ------------------------------------------------------------------- top */
+
+.top {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: clamp(24px, 4vh, 44px) clamp(28px, 4vw, 64px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.brand__logo {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: conic-gradient(from 200deg, var(--a1), var(--a2), var(--a3), var(--a1));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--a1) 60%, transparent);
+}
+
+.top__right {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.top__time {
+  color: var(--ink-2);
+  font: 500 15px var(--mono);
+  letter-spacing: 0.04em;
+}
+
+/* ----------------------------------------------------------------- phase */
+
+.phase {
+  position: absolute;
+  top: 42%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  text-shadow: 0 2px 28px rgb(4 6 10 / 0.45);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.phase__word {
+  font-size: clamp(44px, 6.4vh, 76px);
+  font-style: italic;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.phase__count {
+  font: 500 14px var(--mono);
+  letter-spacing: 0.2em;
+  opacity: 0.8;
+}
+
+/* ------------------------------------------------------------------ copy */
+
+.copy {
+  position: absolute;
+  top: 68%;
+  left: 50%;
+  width: min(760px, 86vw);
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.copy__kicker {
+  margin-bottom: 14px;
+}
+
+.copy__title {
+  font-size: clamp(40px, 5.6vh, 72px);
+  line-height: 1;
+}
+
+.copy__title .line,
+.copy__text .line {
+  padding-bottom: 0.08em;
+}
+
+.copy__text {
+  max-width: 540px;
+  margin: 16px auto 0;
+  color: var(--ink-2);
+  font-size: clamp(15px, 1.9vh, 18px);
+  line-height: 1.55;
+}
+
+/* ---------------------------------------------------------------- bottom */
+
+.bottom {
+  position: absolute;
+  inset: auto 0 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 0 clamp(28px, 4vw, 64px) clamp(24px, 4.5vh, 48px);
+}
+
+.timeline {
+  display: flex;
+  gap: 6px;
+  width: min(560px, 46vw);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.timeline li {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.timeline__bar {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--line-2);
+}
+
+.timeline__bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left;
+}
+
+.timeline__label {
+  overflow: hidden;
+  color: var(--ink-4);
+  font: 500 10px var(--mono);
+  letter-spacing: 0.14em;
+  text-overflow: clip;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: color 0.6s;
+}
+
+.timeline li.is-current .timeline__label {
+  color: var(--ink);
+}
+
+.timeline li.is-past .timeline__label {
+  color: var(--ink-3);
+}
+
+.controls {
+  display: flex;
+  gap: 10px;
+}
+
+.controls .btn {
+  height: 46px;
+  padding: 0 22px;
+  background: rgb(255 255 255 / 0.03);
+  backdrop-filter: blur(12px);
+}
+
+.controls .btn.is-emergency {
+  height: 38px;
+  padding: 0 16px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+.btn__hint {
+  color: var(--ink-3);
+  font: 11px var(--mono);
+}
+
+/* ------------------------------------------------------------------ done */
+
+.done {
+  position: absolute;
+  top: 62%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: min(760px, 86vw);
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.done[hidden] {
+  display: none;
+}
+
+.done__title {
+  font-size: clamp(56px, 8vh, 96px);
+  line-height: 0.95;
+}
+
+.done__text {
+  max-width: 460px;
+  color: var(--ink-2);
+  font-size: 16px;
+}
+
+.done .btn {
+  margin-top: 10px;
+}
+
+.done__hint {
+  color: var(--ink-4);
+}
+
+/* ------------------------------------------------------------- secondary */
+
+.role-secondary .phase,
+.role-secondary .copy__text,
+.role-secondary .bottom,
+.role-secondary .done .btn,
+.role-secondary .done__hint {
+  display: none;
+}
+
+.role-secondary .copy {
+  top: 70%;
+}
+
+/* ------------------------------------------------------------- micro */
+
+.is-micro .timeline {
+  display: none;
+}
+
+@media (max-height: 760px) {
+  .copy {
+    top: 66%;
+  }
+
+  .copy__text {
+    margin-top: 10px;
+  }
+}

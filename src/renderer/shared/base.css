@@ -1,0 +1,354 @@
+@import '@fontsource/instrument-serif/latin-400.css';
+@import '@fontsource/instrument-serif/latin-400-italic.css';
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+/* ------------------------------------------------------------------ tokens */
+
+:root {
+  color-scheme: dark;
+
+  --bg: #07080a;
+  --bg-elev: #0d0f12;
+  --bg-elev-2: #14171b;
+  --ink: #f2efe8;
+  --ink-2: rgb(242 239 232 / 0.68);
+  --ink-3: rgb(242 239 232 / 0.44);
+  --ink-4: rgb(242 239 232 / 0.2);
+  --line: rgb(242 239 232 / 0.08);
+  --line-2: rgb(242 239 232 / 0.15);
+  --glass: rgb(255 255 255 / 0.035);
+  --glass-2: rgb(255 255 255 / 0.06);
+
+  /* palette – overwritten at runtime by applyPalette() */
+  --a1: #9be7c4;
+  --a2: #6fb7ff;
+  --a3: #c9a8ff;
+  --warm: #ffb27a;
+  --accent: var(--a1);
+  --on-accent: #0a0b0d;
+
+  --display: 'Instrument Serif', 'Iowan Old Style', Georgia, serif;
+  --sans: 'Geist Variable', 'Segoe UI Variable Text', 'SF Pro Text', system-ui, sans-serif;
+  --mono: 'Geist Mono Variable', 'Cascadia Mono', 'SF Mono', ui-monospace, monospace;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-io: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --radius-s: 10px;
+  --radius: 18px;
+  --radius-l: 28px;
+}
+
+/* ------------------------------------------------------------------- reset */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+/* Component display rules must never un-hide an element. */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.5;
+  font-feature-settings: 'ss01', 'cv11';
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  user-select: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+h1,
+h2,
+h3,
+h4,
+p {
+  margin: 0;
+  font-weight: inherit;
+}
+
+em {
+  font-style: italic;
+}
+
+:focus {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 1.5px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+::selection {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* -------------------------------------------------------------- typography */
+
+.display {
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  line-height: 0.92;
+}
+
+.display em,
+em.display {
+  font-style: italic;
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 450;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Rolling digits (see RollingText in ui.js). */
+.roll {
+  --lh: 1.08em;
+  display: inline-flex;
+  align-items: flex-start;
+  line-height: var(--lh);
+  white-space: pre;
+}
+
+.roll__slot {
+  display: inline-block;
+  height: var(--lh);
+  overflow: hidden;
+}
+
+.roll__col {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.8s var(--ease-out);
+}
+
+.roll__col > span {
+  display: block;
+  height: var(--lh);
+  text-align: center;
+}
+
+.roll--instant .roll__col {
+  transition: none;
+}
+
+/* ---------------------------------------------------------------- texture */
+
+.grain {
+  position: fixed;
+  inset: -100%;
+  z-index: 90;
+  pointer-events: none;
+  opacity: 0.055;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.1 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain 1.4s steps(5) infinite;
+}
+
+@keyframes grain {
+  0% { transform: translate(0, 0); }
+  20% { transform: translate(-4%, 3%); }
+  40% { transform: translate(3%, -5%); }
+  60% { transform: translate(-6%, -2%); }
+  80% { transform: translate(5%, 4%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* ---------------------------------------------------------------- controls */
+
+.btn {
+  --btn-bg: var(--glass-2);
+  --btn-ink: var(--ink);
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 999px;
+  background: var(--btn-bg);
+  color: var(--btn-ink);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  transition:
+    background 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out),
+    color 0.35s var(--ease-out),
+    transform 0.35s var(--ease-out);
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.btn:hover {
+  --btn-bg: rgb(255 255 255 / 0.1);
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn--primary {
+  --btn-bg: var(--ink);
+  --btn-ink: var(--bg);
+  box-shadow: none;
+}
+
+.btn--primary:hover {
+  --btn-bg: var(--accent);
+  --btn-ink: var(--on-accent);
+}
+
+.btn--accent {
+  --btn-bg: var(--accent);
+  --btn-ink: var(--on-accent);
+  box-shadow: none;
+}
+
+.btn--ghost {
+  --btn-bg: transparent;
+  box-shadow: inset 0 0 0 1px var(--line-2);
+}
+
+.btn--ghost:hover {
+  --btn-bg: var(--glass-2);
+}
+
+.btn--small {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+}
+
+.btn__arrow {
+  display: inline-block;
+  transition: transform 0.45s var(--ease-out);
+}
+
+.btn:hover .btn__arrow {
+  transform: translateX(3px);
+}
+
+/* Switch: the knob stretches while pressed and springs into place. */
+.toggle {
+  --w: 46px;
+  --h: 28px;
+  --pad: 3px;
+  position: relative;
+  flex: none;
+  width: var(--w);
+  height: var(--h);
+  border-radius: 999px;
+  background: var(--glass-2);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  transition:
+    background 0.4s var(--ease-out),
+    box-shadow 0.4s var(--ease-out);
+}
+
+.toggle__knob {
+  position: absolute;
+  top: var(--pad);
+  left: var(--pad);
+  width: calc(var(--h) - var(--pad) * 2);
+  height: calc(var(--h) - var(--pad) * 2);
+  border-radius: 999px;
+  background: var(--ink-2);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35);
+  transition:
+    transform 0.55s var(--ease-spring),
+    width 0.25s var(--ease-out),
+    background 0.4s var(--ease-out);
+}
+
+.toggle:active .toggle__knob {
+  width: calc(var(--h) - var(--pad) * 2 + 7px);
+}
+
+.toggle[aria-checked='true'] {
+  background: var(--accent);
+  box-shadow: inset 0 0 0 1px transparent;
+}
+
+.toggle[aria-checked='true'] .toggle__knob {
+  background: var(--on-accent);
+  transform: translateX(calc(var(--w) - var(--h)));
+}
+
+.toggle[aria-checked='true']:active .toggle__knob {
+  transform: translateX(calc(var(--w) - var(--h) - 7px));
+}
+
+/* Hold-to-confirm: fills while pressed, springs back if released early. */
+.hold {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.hold__fill {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--ink);
+  transform: scaleX(0);
+  transform-origin: left center;
+  border-radius: inherit;
+}
+
+/* The label inverts exactly where the fill passes underneath it. */
+.hold__label {
+  position: relative;
+  color: #fff;
+  mix-blend-mode: difference;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grain {
+    animation: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="de-CH">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Atem</title>
+    <link rel="stylesheet" href="./bundle.css" />
+  </head>
+  <body class="is-intro">
+    <canvas id="gl" class="gl" aria-hidden="true"></canvas>
+    <div class="ambient" aria-hidden="true"><i></i><i></i></div>
+    <div class="grain" aria-hidden="true"></div>
+
+    <!-- window bar ---------------------------------------------------------->
+    <header class="bar" id="bar">
+      <a class="bar__brand" href="#hero" data-goto="hero" aria-label="Atem, nach oben">
+        <span class="bar__logo" aria-hidden="true"></span>
+        <span>Atem</span>
+      </a>
+      <div class="bar__status" id="bar-status">
+        <span class="bar__pulse" aria-hidden="true"></span>
+        <span id="bar-status-text">Fokus</span>
+      </div>
+      <div class="bar__spacer"></div>
+      <div class="bar__saved" id="saved" role="status" aria-live="polite">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>
+        <span>Gespeichert</span>
+      </div>
+      <div class="bar__controls" id="win-controls">
+        <button data-win="minimize" aria-label="Minimieren">
+          <svg viewBox="0 0 10 10"><path d="M0 5h10" /></svg>
+        </button>
+        <button data-win="maximize" aria-label="Maximieren">
+          <svg viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" /></svg>
+        </button>
+        <button data-win="close" aria-label="Schliessen">
+          <svg viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- section rail -------------------------------------------------------->
+    <nav class="rail" id="rail" aria-label="Abschnitte">
+      <a href="#hero" data-goto="hero"><span class="rail__num">00</span><span class="rail__txt">Jetzt</span></a>
+      <a href="#rhythm" data-goto="rhythm"><span class="rail__num">01</span><span class="rail__txt">Rhythmus</span></a>
+      <a href="#eyes" data-goto="eyes"><span class="rail__num">02</span><span class="rail__txt">Augen</span></a>
+      <a href="#program" data-goto="program"><span class="rail__num">03</span><span class="rail__txt">Programm</span></a>
+      <a href="#strict" data-goto="strict"><span class="rail__num">04</span><span class="rail__txt">Konsequenz</span></a>
+      <a href="#stats" data-goto="stats"><span class="rail__num">05</span><span class="rail__txt">Bilanz</span></a>
+      <a href="#system" data-goto="system"><span class="rail__num">06</span><span class="rail__txt">Feinschliff</span></a>
+    </nav>
+    <div class="progress" aria-hidden="true"><i id="progress"></i></div>
+
+    <div id="smooth-wrapper">
+      <div id="smooth-content">
+        <main>
+          <!-- 00 hero ------------------------------------------------------>
+          <section class="hero" id="hero" data-section="hero">
+            <div class="hero__anchor" data-orb-anchor></div>
+            <div class="hero__top">
+              <p class="label"><span class="label__num">(00)</span> Dein Pausen-Begleiter</p>
+              <p class="label" id="hero-date">&nbsp;</p>
+            </div>
+            <h1 class="hero__title display" id="hero-title">
+              <span class="hero__line"><span>Atem</span></span>
+              <span class="hero__line hero__line--em"><em>holen.</em></span>
+            </h1>
+            <div class="hero__bottom">
+              <div class="hero__status">
+                <p class="label" id="hero-label">Nächste Pause in</p>
+                <div class="hero__time display tabular" id="hero-time">00:00</div>
+                <div class="hero__meter"><i id="hero-meter"></i></div>
+                <p class="hero__sub" id="hero-sub">&nbsp;</p>
+              </div>
+              <div class="hero__actions">
+                <button class="btn btn--primary btn--lg" id="hero-break">
+                  <span id="hero-break-label">Jetzt Pause machen</span>
+                  <span class="btn__arrow" aria-hidden="true">→</span>
+                </button>
+                <div class="pausemenu" id="pausemenu">
+                  <button class="btn btn--ghost btn--lg" id="hero-pause" aria-haspopup="menu" aria-expanded="false">
+                    Pausieren
+                  </button>
+                  <div class="pausemenu__list" role="menu">
+                    <button role="menuitem" data-pause="30">30 Min.</button>
+                    <button role="menuitem" data-pause="60">1 Std.</button>
+                    <button role="menuitem" data-pause="120">2 Std.</button>
+                    <button role="menuitem" data-pause="tomorrow">Bis morgen</button>
+                  </div>
+                </div>
+              </div>
+              <div class="hero__scroll" aria-hidden="true">
+                <span class="label">Scrollen</span>
+                <i></i>
+              </div>
+            </div>
+          </section>
+
+          <div class="marquee" aria-hidden="true">
+            <div class="marquee__track">
+              <span>Einatmen <em>✳</em> Ausatmen <em>✳</em> Innehalten <em>✳</em> Weitermachen <em>✳</em> </span>
+              <span>Einatmen <em>✳</em> Ausatmen <em>✳</em> Innehalten <em>✳</em> Weitermachen <em>✳</em> </span>
+            </div>
+          </div>
+
+          <!-- 01 rhythm ---------------------------------------------------->
+          <section class="sec rhythm" id="rhythm" data-section="rhythm">
+            <header class="sec__head">
+              <p class="label"><span class="label__num">(01)</span> Rhythmus</p>
+              <h2 class="sec__title display" data-split>Arbeite im <em>Takt,</em> nicht im Tunnel.</h2>
+              <p class="sec__lead" data-reveal>
+                Wie lange tauchst du ab, wie lange tauchst du auf? Stell es ein, Atem erinnert dich daran. Sanft, aber
+                bestimmt.
+              </p>
+            </header>
+
+            <div class="rhythm__grid">
+              <div class="rhythm__controls" data-reveal>
+                <div class="presets" id="presets">
+                  <button data-preset="25,5"><b>Pomodoro</b><span>25 / 5</span></button>
+                  <button data-preset="55,5"><b>Klassisch</b><span>55 / 5</span></button>
+                  <button data-preset="90,15"><b>Tiefenarbeit</b><span>90 / 15</span></button>
+                </div>
+                <div class="dial">
+                  <div class="dial__head">
+                    <span class="label">Fokus</span>
+                    <span class="dial__value display"><span class="tabular" id="work-num">55</span><em>min</em></span>
+                  </div>
+                  <div id="ruler-work"></div>
+                </div>
+                <div class="dial">
+                  <div class="dial__head">
+                    <span class="label">Pause</span>
+                    <span class="dial__value display"><span class="tabular" id="rest-num">5</span><em>min</em></span>
+                  </div>
+                  <div id="ruler-rest"></div>
+                </div>
+              </div>
+
+              <figure class="cycle" data-reveal>
+                <div class="cycle__ring" id="cycle"></div>
+                <div class="cycle__core" data-orb-anchor></div>
+                <figcaption class="cycle__legend">
+                  <span><i class="dot dot--work"></i><b id="legend-work">55</b> Fokus</span>
+                  <span><i class="dot dot--rest"></i><b id="legend-rest">5</b> Pause</span>
+                  <span id="legend-micro-wrap"><i class="dot dot--micro"></i><b id="legend-micro">2</b> Mikropausen</span>
+                  <span class="cycle__total"><b id="cycle-total">60</b> Min. pro Zyklus</span>
+                </figcaption>
+              </figure>
+            </div>
+
+            <p class="insight" id="insight" data-reveal>&nbsp;</p>
+          </section>
+
+          <!-- 02 eyes ------------------------------------------------------>
+          <section class="sec eyes" id="eyes" data-section="eyes">
+            <div class="eyes__grid">
+              <div class="eyes__text">
+                <p class="label"><span class="label__num">(02)</span> Augen</p>
+                <h2 class="eyes__rule display" aria-label="Die 20-20-20-Regel">
+                  <span class="tabular" id="rule-interval">20</span><i>·</i><span class="tabular" id="rule-duration">20</span
+                  ><i>·</i><span>20</span>
+                </h2>
+                <ol class="eyes__legend" data-reveal>
+                  <li><b id="legend-interval">alle 20 Min.</b> kurz unterbrechen</li>
+                  <li><b id="legend-duration">20 Sekunden</b> lang</li>
+                  <li><b>6 Meter</b> weit schauen</li>
+                </ol>
+                <p class="sec__lead" data-reveal>
+                  Stundenlang auf den Bildschirm zu fokussieren, verkrampft den Ziliarmuskel. Ein kurzer Blick in die
+                  Ferne entspannt ihn und beugt müden, trockenen Augen vor.
+                </p>
+                <div class="rows" data-reveal>
+                  <div class="row">
+                    <div class="row__text">
+                      <h4>Mikropausen</h4>
+                      <p>Kleine Augen-Pausen zwischen den grossen.</p>
+                    </div>
+                    <button class="toggle" id="micro-enabled" aria-label="Mikropausen"></button>
+                  </div>
+                  <div class="row" data-needs-micro>
+                    <div class="row__text"><h4>Rhythmus</h4></div>
+                    <div id="micro-interval"></div>
+                  </div>
+                  <div class="row" data-needs-micro>
+                    <div class="row__text"><h4>Dauer</h4></div>
+                    <div id="micro-duration"></div>
+                  </div>
+                  <div class="row" data-needs-micro>
+                    <div class="row__text">
+                      <h4>Darstellung</h4>
+                      <p>Dezente Kapsel oben oder ganzer Bildschirm.</p>
+                    </div>
+                    <div class="seg seg--small" id="micro-style">
+                      <button data-value="capsule">Kapsel</button>
+                      <button data-value="fullscreen">Vollbild</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <figure class="eye" id="eye" data-cursor="blink" aria-hidden="true"></figure>
+            </div>
+          </section>
+
+          <!-- 03 program (pinned, horizontal) ------------------------------>
+          <section class="program" id="program" data-section="program">
+            <div class="program__pin">
+              <header class="program__head">
+                <p class="label"><span class="label__num">(03)</span> Pausenprogramm</p>
+                <h2 class="sec__title display" data-split>Was deine Pause <em>füllt.</em></h2>
+                <p class="sec__lead">
+                  Aus deinen Übungen entsteht ein geführtes Programm, das genau in deine Pausenlänge passt.
+                </p>
+              </header>
+              <div class="program__viewport">
+                <div class="program__track" id="program-track">
+                  <article class="card" data-activity="breath">
+                    <header class="card__top">
+                      <span class="label">01</span>
+                      <button class="toggle" aria-label="Atmung im Programm"></button>
+                    </header>
+                    <div class="card__visual" data-visual="breath"></div>
+                    <h3 class="card__title display">Atmung</h3>
+                    <p class="card__text">Ein ruhiger Atemrhythmus, der dein Nervensystem herunterfährt.</p>
+                    <div class="seg seg--small seg--wide" id="breath-pattern">
+                      <button data-value="calm">Ruhig 4·6</button>
+                      <button data-value="box">Box 4·4·4·4</button>
+                      <button data-value="478">4·7·8</button>
+                    </div>
+                  </article>
+                  <article class="card" data-activity="eyes">
+                    <header class="card__top">
+                      <span class="label">02</span>
+                      <button class="toggle" aria-label="Augen im Programm"></button>
+                    </header>
+                    <div class="card__visual" data-visual="eyes"></div>
+                    <h3 class="card__title display">Augen</h3>
+                    <p class="card__text">Fernblick, Augenkreisen, Palming und bewusstes Blinzeln.</p>
+                  </article>
+                  <article class="card" data-activity="stretch">
+                    <header class="card__top">
+                      <span class="label">03</span>
+                      <button class="toggle" aria-label="Dehnen im Programm"></button>
+                    </header>
+                    <div class="card__visual" data-visual="stretch"></div>
+                    <h3 class="card__title display">Dehnen</h3>
+                    <p class="card__text">Nacken, Schultern und Rücken lockern, die vom Sitzen fest sind.</p>
+                  </article>
+                  <article class="card" data-activity="move">
+                    <header class="card__top">
+                      <span class="label">04</span>
+                      <button class="toggle" aria-label="Bewegen im Programm"></button>
+                    </header>
+                    <div class="card__visual" data-visual="move"></div>
+                    <h3 class="card__title display">Bewegen</h3>
+                    <p class="card__text">Aufstehen, ein Glas Wasser holen, ein paar Schritte gehen.</p>
+                  </article>
+                  <article class="card card--cta">
+                    <p class="label">Bereit?</p>
+                    <h3 class="card__title display">Spür, wie sich eine <em>Pause</em> anfühlt.</h3>
+                    <div class="card__cta">
+                      <button class="btn btn--accent btn--lg" id="try-break">
+                        Pause testen <span class="btn__meta">60 s</span>
+                      </button>
+                      <button class="btn btn--ghost" id="try-micro">Mikropause testen</button>
+                    </div>
+                  </article>
+                </div>
+              </div>
+              <div class="program__bar"><i id="program-bar"></i></div>
+            </div>
+          </section>
+
+          <!-- 04 strictness ------------------------------------------------>
+          <section class="sec strict" id="strict" data-section="strict">
+            <header class="sec__head">
+              <p class="label"><span class="label__num">(04)</span> Konsequenz</p>
+              <h2 class="sec__title display" data-split>Wie <em>streng</em> darf ich sein?</h2>
+            </header>
+            <div class="strict__grid">
+              <div class="strict__main" data-reveal>
+                <div class="seg seg--large" id="strictness">
+                  <button data-value="gentle">Sanft</button>
+                  <button data-value="balanced">Ausgewogen</button>
+                  <button data-value="strict">Strikt</button>
+                </div>
+                <div class="strict__copy" id="strict-copy">
+                  <p class="strict__quote display" id="strict-quote">&nbsp;</p>
+                  <ul class="strict__facts" id="strict-facts"></ul>
+                </div>
+              </div>
+              <aside class="strict__side" data-reveal>
+                <div class="tryhold">
+                  <p class="label">Probier es aus</p>
+                  <button class="hold btn btn--ghost btn--lg" id="demo-hold">
+                    <span class="hold__fill"></span>
+                    <span class="hold__label" id="demo-hold-label">Zum Überspringen halten</span>
+                  </button>
+                  <p class="tryhold__hint" id="demo-hint">So fühlt sich Überspringen an.</p>
+                </div>
+                <div class="rows">
+                  <div class="row">
+                    <div class="row__text">
+                      <h4>Vorwarnung</h4>
+                      <p>Kündigt die Pause vorher an, damit du fertig denken kannst.</p>
+                    </div>
+                    <button class="toggle" id="warn-enabled" aria-label="Vorwarnung"></button>
+                  </div>
+                  <div class="row" data-needs-warn>
+                    <div class="row__text"><h4>Vorlauf</h4></div>
+                    <div id="warn-seconds"></div>
+                  </div>
+                  <div class="row">
+                    <div class="row__text">
+                      <h4>Verschieben um</h4>
+                      <p>Wenn es gerade wirklich nicht passt.</p>
+                    </div>
+                    <div id="snooze-minutes"></div>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <!-- 05 stats ----------------------------------------------------->
+          <section class="sec stats" id="stats" data-section="stats">
+            <header class="sec__head">
+              <p class="label"><span class="label__num">(05)</span> Bilanz</p>
+              <h2 class="sec__title display" data-split><em>Heute.</em></h2>
+              <p class="sec__lead" id="stats-sentence" data-reveal>&nbsp;</p>
+            </header>
+            <div class="tiles" data-reveal-stagger>
+              <div class="tile tile--ring">
+                <svg class="tile__ring" viewBox="0 0 120 120" aria-hidden="true">
+                  <circle cx="60" cy="60" r="52" class="tile__ring-track" />
+                  <circle cx="60" cy="60" r="52" class="tile__ring-fill" id="compliance-ring" />
+                </svg>
+                <p class="tile__value display"><span data-count id="stat-taken">0</span><em>/<span id="stat-due">0</span></em></p>
+                <p class="label">Pausen eingehalten</p>
+              </div>
+              <div class="tile">
+                <p class="tile__value display">
+                  <span data-count id="stat-focus-h">0</span><em>h</em> <span data-count id="stat-focus-m">0</span><em>min</em>
+                </p>
+                <p class="label">Aktive Zeit</p>
+              </div>
+              <div class="tile">
+                <p class="tile__value display"><span data-count id="stat-micro">0</span></p>
+                <p class="label">Mikropausen</p>
+              </div>
+              <div class="tile">
+                <p class="tile__value display"><span data-count id="stat-streak">0</span><em id="stat-streak-unit">Tage</em></p>
+                <p class="label">Serie</p>
+              </div>
+            </div>
+            <figure class="week" data-reveal>
+              <figcaption class="week__head">
+                <span class="label">Letzte 7 Tage</span>
+                <span class="label week__legend"><i class="dot dot--rest"></i> Pausen <i class="dot dot--muted"></i> übersprungen</span>
+              </figcaption>
+              <div class="week__bars" id="week"></div>
+            </figure>
+          </section>
+
+          <!-- 06 system ---------------------------------------------------->
+          <section class="sec system" id="system" data-section="system">
+            <header class="sec__head">
+              <p class="label"><span class="label__num">(06)</span> Feinschliff</p>
+              <h2 class="sec__title display" data-split>Die <em>Details.</em></h2>
+            </header>
+            <div class="system__grid">
+              <div class="rows rows--list" data-reveal>
+                <div class="row">
+                  <div class="row__text">
+                    <h4>Mit dem System starten</h4>
+                    <p id="autostart-note">Atem startet still im Hintergrund, sobald du dich anmeldest.</p>
+                  </div>
+                  <button class="toggle" id="autostart" aria-label="Mit dem System starten"></button>
+                </div>
+                <div class="row">
+                  <div class="row__text">
+                    <h4>Abwesenheit erkennen</h4>
+                    <p>Bist du länger weg, zählt das als Pause und der Zähler beginnt neu.</p>
+                  </div>
+                  <button class="toggle" id="idle-enabled" aria-label="Abwesenheit erkennen"></button>
+                </div>
+                <div class="row" data-needs-idle>
+                  <div class="row__text"><h4>Als abwesend gilt ab</h4></div>
+                  <div id="idle-threshold"></div>
+                </div>
+                <div class="row">
+                  <div class="row__text">
+                    <h4>Klangschale</h4>
+                    <p>Ein leiser Ton zu Beginn und am Ende jeder Pause.</p>
+                  </div>
+                  <button class="toggle" id="sound-chime" aria-label="Klangschale"></button>
+                </div>
+                <div class="row">
+                  <div class="row__text">
+                    <h4>Meeresrauschen</h4>
+                    <p>Wellen, die mit deinem Atem kommen und gehen.</p>
+                  </div>
+                  <button class="toggle" id="sound-ambient" aria-label="Meeresrauschen"></button>
+                </div>
+                <div class="row">
+                  <div class="row__text"><h4>Lautstärke</h4></div>
+                  <div class="slider" id="volume">
+                    <input type="range" min="0" max="100" step="1" aria-label="Lautstärke" />
+                    <span class="slider__value tabular"></span>
+                  </div>
+                </div>
+                <div class="row" data-mac-only>
+                  <div class="row__text">
+                    <h4>Countdown in der Menüleiste</h4>
+                    <p>Die Minuten bis zur Pause direkt neben dem Symbol.</p>
+                  </div>
+                  <button class="toggle" id="tray-countdown" aria-label="Countdown in der Menüleiste"></button>
+                </div>
+              </div>
+
+              <div class="mood" data-reveal>
+                <p class="label">Stimmung</p>
+                <div class="mood__stage">
+                  <div class="mood__anchor" data-orb-anchor></div>
+                </div>
+                <div class="mood__swatches" id="palettes" role="radiogroup" aria-label="Farbstimmung"></div>
+                <p class="mood__name display" id="palette-name">Salbei</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- outro -------------------------------------------------------->
+          <footer class="outro" id="outro" data-section="outro">
+            <div class="outro__anchor" data-orb-anchor></div>
+            <h2 class="outro__title display" data-split>Atme. <em>Dann weiter.</em></h2>
+            <div class="outro__meta">
+              <span class="label" id="version">Atem</span>
+              <button class="label outro__quit" id="quit">Atem beenden</button>
+            </div>
+          </footer>
+        </main>
+      </div>
+    </div>
+
+    <div class="cursor" aria-hidden="true">
+      <div class="cursor__ring"><span class="cursor__label"></span></div>
+      <div class="cursor__dot"></div>
+    </div>
+
+    <script src="./bundle.js"></script>
+  </body>
+</html>
