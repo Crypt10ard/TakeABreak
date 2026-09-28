@@ -1,9 +1,10 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, powerMonitor, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, powerMonitor, Menu, nativeTheme } = require('electron');
 const path = require('path');
 const os = require('os');
 
+const i18n = require('./i18n');
 const { DEFAULT_SETTINGS, STRICTNESS, sanitizeSettings } = require('./defaults');
 const { JsonFile, deepMerge } = require('./store');
 const { Stats } = require('./stats');
@@ -30,7 +31,8 @@ let quitting = false;
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on('second-instance', () => windows?.openSettings());
+  // Launching Atem again opens the settings; `Atem --quit` ends the running instance (handy for updates).
+  app.on('second-instance', (_e, argv) => (argv.includes('--quit') ? app.quit() : windows?.openSettings()));
   app.on('activate', () => windows?.openSettings()); // macOS: app icon clicked while running
   app.on('window-all-closed', () => {}); // live on in the tray
   app.on('before-quit', shutdown);
@@ -40,14 +42,25 @@ if (!app.requestSingleInstanceLock()) {
 function boot() {
   if (isMac) app.dock?.hide();
   if (isWin) app.setAppUserModelId('ch.chriggi.atem');
-  Menu.setApplicationMenu(isMac ? macMenu() : null);
 
   const userData = app.getPath('userData');
   settingsStore = new JsonFile(path.join(userData, 'settings.json'), DEFAULT_SETTINGS);
   settingsStore.data = sanitizeSettings(settingsStore.data);
   const firstRun = !settingsStore.existed;
-  if (firstRun) settingsStore.save({ immediate: true });
+  if (firstRun) {
+    settingsStore.save({ immediate: true });
+  } else {
+    // Installs from before themes and languages existed keep the look and language they had.
+    const { stored } = settingsStore;
+    if (!('theme' in stored)) settingsStore.data.theme = 'dark';
+    if (!('language' in stored)) settingsStore.data.language = 'de';
+    settingsStore.save();
+  }
   stats = new Stats(path.join(userData, 'stats.json'));
+
+  nativeTheme.themeSource = settingsStore.data.theme;
+  i18n.setLanguage(settingsStore.data.language, app.getLocale());
+  Menu.setApplicationMenu(isMac ? macMenu() : null);
 
   const getSettings = () => settingsStore.data;
   scheduler = new Scheduler({ getSettings, getIdleSeconds: () => powerMonitor.getSystemIdleTime(), stats });
@@ -73,12 +86,16 @@ function boot() {
 
   wireScheduler();
   registerIpc();
+  // With theme "system", an OS switch between light and dark must reach the window chrome too.
+  nativeTheme.on('updated', () => windows.themeChanged());
   powerMonitor.on('lock-screen', () => scheduler.setLocked('screen', true));
   powerMonitor.on('unlock-screen', () => scheduler.setLocked('screen', false));
   powerMonitor.on('suspend', () => scheduler.setLocked('sleep', true));
   powerMonitor.on('resume', () => scheduler.setLocked('sleep', false));
 
-  applyAutostart(getSettings().autostart);
+  applyAutostart(getSettings().autostart, { force: firstRun });
+  // Once more a little later: an updater that is still cleaning up must not leave us without autostart.
+  setTimeout(() => applyAutostart(getSettings().autostart), 30_000);
   scheduler.start();
   windows.preparePopover();
 
@@ -86,7 +103,7 @@ function boot() {
   else windows.showIsland({ kind: 'hello', nextBreakAt: scheduler.nextBreakAt });
 
   if (dev && process.env.ATEM_SELFTEST) {
-    require('./selftest').run({ dir: process.env.ATEM_SELFTEST, windows, scheduler, tray, runAction });
+    require('./selftest').run({ dir: process.env.ATEM_SELFTEST, windows, scheduler, tray, runAction, updateSettings });
   }
   if (dev && process.argv.includes('--preview-break')) setTimeout(() => runAction('preview-break', 20), 1500);
 }
@@ -106,12 +123,22 @@ function launchedHidden() {
   return false;
 }
 
-function applyAutostart(enabled) {
+/**
+ * Keeps the login item in line with the "start with your computer" setting.
+ * `force` (first run, or the user flipped the switch in Atem) always applies it. Otherwise Atem only
+ * restores an entry that has gone missing (e.g. during an update) and respects choices made in the
+ * OS: switched off in Task Manager's startup tab, or removed from macOS login items.
+ */
+function applyAutostart(enabled, { force = false } = {}) {
   // In development this would register the bare Electron binary – only real builds autostart.
   // Test profiles (ATEM_PROFILE) never touch the login items either.
   if (!app.isPackaged || process.env.ATEM_PROFILE) return;
-  if (isWin) app.setLoginItemSettings({ openAtLogin: enabled, path: process.execPath, args: ['--hidden'] });
-  else if (isMac) app.setLoginItemSettings({ openAtLogin: enabled });
+  const target = isWin ? { path: process.execPath, args: ['--hidden'] } : {};
+  if (!force) {
+    if (isMac) return;
+    if (enabled && app.getLoginItemSettings(target).openAtLogin) return;
+  }
+  app.setLoginItemSettings({ openAtLogin: enabled, ...target });
 }
 
 function wireScheduler() {
@@ -165,7 +192,15 @@ function updateSettings(patch) {
   const next = sanitizeSettings(deepMerge(prev, patch || {}));
   settingsStore.data = next;
   settingsStore.save();
-  if (prev.autostart !== next.autostart) applyAutostart(next.autostart);
+  if (prev.autostart !== next.autostart) applyAutostart(next.autostart, { force: true });
+  if (prev.theme !== next.theme) {
+    nativeTheme.themeSource = next.theme;
+    windows.themeChanged();
+  }
+  if (prev.language !== next.language && i18n.setLanguage(next.language, app.getLocale())) {
+    tray.refresh();
+    if (isMac) Menu.setApplicationMenu(macMenu());
+  }
   scheduler.settingsChanged(prev, next);
   windows.broadcast('settings', next);
   return next;
@@ -288,20 +323,21 @@ function shutdown() {
 }
 
 function macMenu() {
+  const { t } = i18n;
   return Menu.buildFromTemplate([
     {
       label: 'Atem',
       submenu: [
-        { role: 'about', label: 'Über Atem' },
+        { role: 'about', label: t('menu.about') },
         { type: 'separator' },
-        { label: 'Einstellungen …', accelerator: 'Cmd+,', click: () => windows?.openSettings() },
+        { label: t('menu.settings'), accelerator: 'Cmd+,', click: () => windows?.openSettings() },
         { type: 'separator' },
-        { role: 'hide', label: 'Atem ausblenden' },
+        { role: 'hide', label: t('menu.hide') },
         { type: 'separator' },
-        { label: 'Atem beenden', accelerator: 'Cmd+Q', click: () => app.quit() },
+        { label: t('menu.quit'), accelerator: 'Cmd+Q', click: () => app.quit() },
       ],
     },
-    { label: 'Bearbeiten', submenu: [{ role: 'copy', label: 'Kopieren' }, { role: 'selectAll', label: 'Alles auswählen' }] },
-    { label: 'Fenster', submenu: [{ role: 'minimize', label: 'Minimieren' }, { role: 'close', label: 'Schliessen' }] },
+    { label: t('menu.edit'), submenu: [{ role: 'copy', label: t('menu.copy') }, { role: 'selectAll', label: t('menu.selectAll') }] },
+    { label: t('menu.window'), submenu: [{ role: 'minimize', label: t('menu.minimize') }, { role: 'close', label: t('menu.close') }] },
   ]);
 }

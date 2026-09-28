@@ -9,7 +9,7 @@ const { renderIcon } = require('./tray-icon');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function run({ dir, windows, scheduler, tray, runAction }) {
+async function run({ dir, windows, scheduler, tray, runAction, updateSettings }) {
   fs.mkdirSync(dir, { recursive: true });
   const log = (...args) => console.log('[selftest]', ...args);
   const capture = async (win, name) => {
@@ -61,6 +61,26 @@ async function run({ dir, windows, scheduler, tray, runAction }) {
     await sleep(1500);
     log('mode after skip:', scheduler.mode, 'island open:', Boolean(windows.island));
     log('snapshot', JSON.stringify(scheduler.snapshot()));
+
+    // Language and theme switch through the main process: tray texts, open windows, window chrome.
+    log('tooltip before:', tray.tray && tray.tip);
+    updateSettings({ language: 'en', theme: 'light' });
+    await sleep(600);
+    log('tooltip after:', tray.tip);
+    windows.togglePopover(tray.tray.getBounds());
+    await sleep(1800);
+    await capture(windows.popover, 'e6-popover-en-light');
+    windows.hidePopover();
+    windows.showIsland({ kind: 'paused', until: Date.now() + 3_600_000 });
+    await sleep(2200);
+    await capture(windows.island, 'e7-island-en-light');
+    windows.closeIsland();
+    windows.openSettings();
+    await sleep(4500);
+    await capture(windows.settings, 'e8-settings-en-light');
+    updateSettings({ language: 'de', theme: 'dark' });
+    await sleep(600);
+    log('tooltip reset:', tray.tip);
   } catch (err) {
     log('FAILED', err.stack || err);
   }

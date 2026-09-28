@@ -1,6 +1,6 @@
 'use strict';
 
-const { BrowserWindow, screen, app, shell } = require('electron');
+const { BrowserWindow, screen, app, shell, nativeTheme } = require('electron');
 const path = require('path');
 
 const isMac = process.platform === 'darwin';
@@ -13,6 +13,8 @@ const ISLAND = { width: 640, height: 190 };
 const WINDOW_ICON = path.join(__dirname, '..', '..', 'build', 'icon-win.png');
 
 const pageFile = (name) => path.join(RENDERER_DIR, name, 'index.html');
+// Matches --bg of the resolved theme, so a window never flashes the wrong colour while loading.
+const themeBackground = () => (nativeTheme.shouldUseDarkColors ? '#07080a' : '#f2f0eb');
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 const alive = (win) => win && !win.isDestroyed();
 
@@ -129,7 +131,7 @@ class WindowManager {
       minHeight: 640,
       show: false,
       title: 'Atem',
-      backgroundColor: '#08090b',
+      backgroundColor: themeBackground(),
       ...(isMac ? {} : { icon: WINDOW_ICON }),
       ...(isMac ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 20, y: 20 } } : { frame: false }),
       webPreferences: webPreferences(),
@@ -150,6 +152,10 @@ class WindowManager {
     if (isMac) app.dock?.show();
     this.settings = win;
     return win;
+  }
+
+  themeChanged() {
+    if (alive(this.settings)) this.settings.setBackgroundColor(themeBackground());
   }
 
   /* ----------------------------------------------------------------- popover */

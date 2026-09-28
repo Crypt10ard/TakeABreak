@@ -1,7 +1,7 @@
 {
   "name": "atem",
   "productName": "Atem",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Atem – dein ruhiger Pausen-Begleiter für Windows und macOS.",
   "main": "src/main/main.js",
   "author": "Christoph Zgraggen",
@@ -30,6 +30,7 @@
     "files": [
       "src/main/**",
       "!src/main/selftest.js",
+      "src/shared/**",
       "src/preload/**",
       "dist/**",
       "build/icon-win.png",

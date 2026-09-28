@@ -4,7 +4,6 @@ const { JsonFile } = require('./store');
 
 const KEEP_DAYS = 90;
 const EMPTY_DAY = { taken: 0, skipped: 0, snoozed: 0, micro: 0, microSkipped: 0, natural: 0, focusSec: 0 };
-const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
 
 const dayKey = (date = new Date()) => {
   const y = date.getFullYear();
@@ -57,7 +56,8 @@ class Stats {
       date.setHours(12, 0, 0, 0);
       date.setDate(date.getDate() - i);
       const key = dayKey(date);
-      week.push({ key, label: WEEKDAYS[date.getDay()], isToday: i === 0, ...EMPTY_DAY, ...(days[key] || {}) });
+      // Weekday names are formatted by the window, in its language.
+      week.push({ key, isToday: i === 0, ...EMPTY_DAY, ...(days[key] || {}) });
     }
 
     // A day counts towards the streak when at least one break was taken and

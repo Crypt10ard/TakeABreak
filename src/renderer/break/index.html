@@ -7,7 +7,7 @@
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Atem · Pause</title>
+    <title>Atem</title>
     <link rel="stylesheet" href="./bundle.css" />
   </head>
   <body>
@@ -20,7 +20,7 @@
       <header class="top">
         <div class="brand"><span class="brand__logo" aria-hidden="true"></span>Atem</div>
         <div class="top__right">
-          <span class="label" id="kind">Pause</span>
+          <span class="label" id="kind">&nbsp;</span>
           <span class="top__time tabular" id="remaining">00:00</span>
         </div>
       </header>
@@ -42,19 +42,19 @@
           <button class="btn btn--ghost" id="snooze" hidden></button>
           <button class="btn btn--ghost hold" id="skip">
             <span class="hold__fill"></span>
-            <span class="hold__label" id="skip-label">Überspringen</span>
+            <span class="hold__label" id="skip-label">&nbsp;</span>
           </button>
         </div>
       </footer>
 
       <section class="done" id="done" hidden>
-        <p class="label">Pause beendet</p>
-        <h1 class="done__title display">Schön <em>gemacht.</em></h1>
+        <p class="label" data-i18n="break.finished"></p>
+        <h1 class="done__title display" data-i18n-html="break.doneTitle"></h1>
         <p class="done__text" id="done-text">&nbsp;</p>
         <button class="btn btn--primary btn--lg" id="back">
-          Zurück an die Arbeit <span class="btn__arrow" aria-hidden="true">→</span>
+          <span data-i18n="break.back"></span> <span class="btn__arrow" aria-hidden="true">→</span>
         </button>
-        <p class="done__hint label">Enter ↵</p>
+        <p class="done__hint label" data-i18n="break.enter"></p>
       </section>
     </div>
 

@@ -4,7 +4,12 @@
 
 html {
   --gutter: 164px;
+  --card-bg: linear-gradient(160deg, rgb(255 255 255 / 0.065), rgb(255 255 255 / 0.015));
   scrollbar-width: none;
+}
+
+html[data-theme='light'] {
+  --card-bg: linear-gradient(160deg, rgb(255 255 255 / 0.92), rgb(255 255 255 / 0.55));
 }
 
 html::-webkit-scrollbar {
@@ -80,7 +85,7 @@ main {
   align-items: center;
   gap: 14px;
   padding-left: 22px;
-  background: linear-gradient(to bottom, rgb(7 8 10 / 0.9), rgb(7 8 10 / 0));
+  background: linear-gradient(to bottom, var(--scrim), transparent);
   -webkit-app-region: drag;
 }
 
@@ -102,8 +107,136 @@ html[data-platform='darwin'] .bar__controls {
   display: none;
 }
 
-html[data-platform='darwin'] .bar__saved {
-  margin-right: 22px;
+html[data-platform='darwin'] .bar {
+  padding-right: 18px;
+}
+
+/* Language pill and theme switch in the title bar. */
+.bar__lang {
+  position: relative;
+  display: inline-flex;
+  height: 26px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--glass);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.bar__lang button {
+  position: relative;
+  z-index: 1;
+  width: 30px;
+  border-radius: 999px;
+  color: var(--ink-3);
+  font: 600 10px var(--mono);
+  letter-spacing: 0.08em;
+  transition: color 0.45s var(--ease-out);
+}
+
+.bar__lang button:hover {
+  color: var(--ink);
+}
+
+.bar__lang button[aria-checked='true'] {
+  color: var(--bg);
+}
+
+.bar__lang-glider {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 30px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--ink);
+  transition: transform 0.65s var(--ease-spring);
+}
+
+.bar__lang[data-lang='en'] .bar__lang-glider {
+  transform: translateX(30px);
+}
+
+.bar__theme {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--ink-2);
+  transition:
+    background 0.25s,
+    color 0.25s,
+    transform 0.55s var(--ease-spring);
+}
+
+.bar__theme:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.bar__theme:active {
+  transform: scale(0.86) rotate(-14deg);
+}
+
+.bar__theme svg {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+}
+
+/* Moon in the dark, sun in the light – the crescent slides away and the rays spin in. */
+.theme-icon__core {
+  fill: currentColor;
+  transition: r 0.7s var(--ease-spring);
+}
+
+.theme-icon__cut {
+  transition:
+    cx 0.8s var(--ease-out),
+    cy 0.8s var(--ease-out);
+}
+
+.theme-icon__rays {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+  transition:
+    transform 0.8s var(--ease-spring),
+    opacity 0.4s;
+}
+
+.theme-icon__rays path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+[data-theme='dark'] .theme-icon__core {
+  r: 7.5px;
+}
+
+[data-theme='dark'] .theme-icon__cut {
+  cx: 17px;
+  cy: 7px;
+}
+
+[data-theme='dark'] .theme-icon__rays {
+  opacity: 0;
+  transform: rotate(-70deg) scale(0.3);
+}
+
+[data-theme='light'] .theme-icon__core {
+  r: 4.4px;
+}
+
+[data-theme='light'] .theme-icon__cut {
+  cx: 30px;
+  cy: -8px;
+}
+
+[data-theme='light'] .theme-icon__rays {
+  opacity: 1;
+  transform: none;
 }
 
 .bar__brand {
@@ -288,7 +421,7 @@ html[data-platform='darwin'] .bar__saved {
   position: absolute;
   inset: -60px -120px -60px -40px;
   z-index: -1;
-  background: radial-gradient(closest-side, rgb(7 8 10 / 0.92), rgb(7 8 10 / 0));
+  background: radial-gradient(closest-side, var(--scrim), transparent);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.5s var(--ease-out);
@@ -487,11 +620,11 @@ html[data-platform='darwin'] .bar__saved {
   min-width: 190px;
   padding: 6px;
   border-radius: 18px;
-  background: rgb(20 22 26 / 0.86);
+  background: var(--float);
   backdrop-filter: blur(24px) saturate(1.4);
   box-shadow:
     inset 0 0 0 1px var(--line-2),
-    0 24px 60px rgb(0 0 0 / 0.5);
+    var(--shadow-float);
   opacity: 0;
   visibility: hidden;
   transform: translateY(10px) scale(0.96);
@@ -835,7 +968,7 @@ html[data-platform='darwin'] .bar__saved {
 }
 
 .presets button.is-active span {
-  color: rgb(7 8 10 / 0.55);
+  color: color-mix(in srgb, var(--bg) 60%, transparent);
 }
 
 .dial {
@@ -996,7 +1129,7 @@ html[data-platform='darwin'] .bar__saved {
   fill: none;
   stroke-width: 12;
   stroke-linecap: round;
-  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--a1) 55%, transparent));
+  filter: drop-shadow(0 0 12px color-mix(in srgb, var(--accent) 55%, transparent));
 }
 
 .cycle__microdot {
@@ -1149,6 +1282,10 @@ html[data-platform='darwin'] .bar__saved {
   fill: rgb(255 255 255 / 0.03);
 }
 
+[data-theme='light'] .eye__white {
+  fill: rgb(255 255 255 / 0.9);
+}
+
 .eye__pupil {
   fill: #050607;
 }
@@ -1228,8 +1365,10 @@ html[data-platform='darwin'] .bar__saved {
   padding: 22px;
   overflow: hidden;
   border-radius: var(--radius-l);
-  background: linear-gradient(160deg, rgb(255 255 255 / 0.065), rgb(255 255 255 / 0.015));
-  box-shadow: inset 0 0 0 1px var(--line);
+  background: var(--card-bg);
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    var(--shadow-card);
   transition:
     opacity 0.6s var(--ease-out),
     box-shadow 0.4s;
@@ -1251,7 +1390,9 @@ html[data-platform='darwin'] .bar__saved {
 }
 
 .card:hover {
-  box-shadow: inset 0 0 0 1px var(--line-2);
+  box-shadow:
+    inset 0 0 0 1px var(--line-2),
+    var(--shadow-card);
 }
 
 .card__top {
@@ -1297,7 +1438,7 @@ html[data-platform='darwin'] .bar__saved {
   background:
     radial-gradient(circle at 80% 10%, color-mix(in srgb, var(--a1) 30%, transparent), transparent 55%),
     radial-gradient(circle at 10% 100%, color-mix(in srgb, var(--a3) 22%, transparent), transparent 60%),
-    rgb(255 255 255 / 0.03);
+    var(--glass);
 }
 
 .card--cta .card__title {
@@ -1382,8 +1523,8 @@ html[data-platform='darwin'] .bar__saved {
 }
 
 .ev__dot {
-  fill: var(--a1);
-  filter: drop-shadow(0 0 10px var(--a1));
+  fill: var(--accent);
+  filter: drop-shadow(0 0 10px var(--accent));
 }
 
 .ev__eye {
@@ -1402,12 +1543,12 @@ html[data-platform='darwin'] .bar__saved {
 }
 
 .sv .sv__head {
-  fill: color-mix(in srgb, var(--a1) 25%, transparent);
-  stroke: var(--a1);
+  fill: color-mix(in srgb, var(--accent) 25%, transparent);
+  stroke: var(--accent);
 }
 
 .sv .sv__arc {
-  stroke: var(--a1);
+  stroke: var(--accent);
   stroke-dasharray: 2 5;
   opacity: 0.6;
 }
@@ -1866,7 +2007,7 @@ html:not([data-platform='darwin']) [data-mac-only] {
   width: 58px;
   height: 58px;
   margin: -29px 0 0 -29px;
-  background: rgb(255 255 255 / 0.05);
+  background: var(--hover);
   box-shadow: inset 0 0 0 1px var(--ink-2);
 }
 
@@ -1909,6 +2050,56 @@ html.has-cursor * {
 .is-intro .hero__bottom,
 .is-intro .hero__line > * {
   visibility: hidden;
+}
+
+/* ----------------------------------------------------------- light theme */
+
+/* On paper, surfaces separate by soft shadows instead of glow. */
+[data-theme='light'] :is(.tile, .week, .mood, .tryhold, .presets button, .stepper, .seg, .bar__status, .bar__lang) {
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    var(--shadow-card);
+}
+
+[data-theme='light'] .presets button.is-active {
+  box-shadow: none;
+}
+
+[data-theme='light'] .ambient i {
+  opacity: 0.24;
+}
+
+[data-theme='light'] .ambient i:nth-child(2) {
+  opacity: 0.2;
+}
+
+[data-theme='light'] .cycle__rest {
+  filter: none;
+}
+
+[data-theme='light'] .ruler__needle {
+  box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+[data-theme='light'] .hero__meter i {
+  background-image: linear-gradient(90deg, var(--accent), var(--a2), var(--warm));
+}
+
+[data-theme='light'] .outro__title {
+  text-shadow: 0 6px 60px rgb(242 240 235 / 0.7);
+}
+
+[data-theme='light'] .bv__core {
+  box-shadow: 0 16px 50px color-mix(in srgb, var(--a2) 35%, transparent);
+}
+
+/* English words are longer: the hero headline takes a little less room. */
+html[lang='en'] .hero__title {
+  font-size: min(22vh, 13.5vw);
+}
+
+html[lang='en'] .hero__line--em {
+  padding-left: 0.3em;
 }
 
 /* ------------------------------------------------------------ responsive */

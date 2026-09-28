@@ -25,7 +25,7 @@ app.whenReady().then(async () => {
       show: false,
       frame: false,
       transparent: !!shot.transparent,
-      backgroundColor: shot.transparent ? '#00000000' : '#07080a',
+      backgroundColor: shot.transparent ? '#00000000' : shot.bg || '#07080a',
       webPreferences: { offscreen: true, contextIsolation: true, sandbox: true },
     });
     win.webContents.setFrameRate(60);

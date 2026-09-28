@@ -1,8 +1,9 @@
 import { gsap } from 'gsap';
 import { reducedMotion } from '../shared/ui.js';
+import { t } from '../shared/i18n.js';
 
 const INTERACTIVE = 'button, a, [role="switch"], [role="radio"], input, .swatch, .card, [data-cursor]';
-const LABELS = { drag: 'Ziehen', blink: 'Blinzeln' };
+const LABELS = { drag: 'cursor.drag', blink: 'cursor.blink' };
 
 /** A dot that sticks to the pointer and a ring that trails it; the ring reacts to what's below. */
 export function createCursor() {
@@ -36,7 +37,7 @@ export function createCursor() {
   document.addEventListener('pointerover', (e) => {
     const target = e.target.closest?.(INTERACTIVE);
     const kind = target?.closest('[data-cursor]')?.dataset.cursor;
-    const text = kind && LABELS[kind];
+    const text = kind && LABELS[kind] && t(LABELS[kind]);
     root.classList.toggle('is-hover', Boolean(target) && !text);
     root.classList.toggle('is-label', Boolean(text));
     if (text) label.textContent = text;

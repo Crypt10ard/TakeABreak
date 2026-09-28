@@ -19,8 +19,13 @@ const DEFAULT_SETTINGS = {
   autostart: true,
   trayCountdown: true,
   palette: 'salbei',
+  theme: 'system',
+  language: 'system',
   onboarded: false,
 };
+
+const THEMES = ['system', 'dark', 'light'];
+const LANGUAGES = ['system', 'de', 'en'];
 
 /** How much friction each strictness level puts in front of skipping a break. */
 const STRICTNESS = {
@@ -78,6 +83,8 @@ function sanitizeSettings(s) {
     autostart: bool(s.autostart, d.autostart),
     trayCountdown: bool(s.trayCountdown, d.trayCountdown),
     palette: oneOf(s.palette, PALETTES, d.palette),
+    theme: oneOf(s.theme, THEMES, d.theme),
+    language: oneOf(s.language, LANGUAGES, d.language),
     onboarded: bool(s.onboarded, d.onboarded),
   };
   // A break program needs at least one activity.

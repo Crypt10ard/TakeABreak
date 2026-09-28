@@ -9,6 +9,8 @@ import { createOrb } from '../shared/orb.js';
 import { PALETTES, palette, applyPalette } from '../shared/palettes.js';
 import { countdown, clock, minutes as fmtMinutes, hoursMinutes } from '../shared/format.js';
 import { chime, setVolume } from '../shared/sound.js';
+import { t, tn, setLang, getLang, locale, applyI18n } from '../shared/i18n.js';
+import { setTheme, getTheme, resolveTheme, onThemeChange, withTransition } from '../shared/theme.js';
 import { RollingText, magnetic, holdButton, bindToggle, bindSegmented, bindStepper, reducedMotion } from '../shared/ui.js';
 import { createRuler } from './ruler.js';
 import { createCycle } from './cycle.js';
@@ -26,6 +28,10 @@ const merge = (a, b) => {
   for (const [k, v] of Object.entries(b || {})) out[k] = isObj(v) && isObj(a?.[k]) ? merge(a[k], v) : v;
   return out;
 };
+const centerOf = (el) => {
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+};
 
 const query = new URLSearchParams(location.search);
 document.documentElement.dataset.platform = query.get('platform') || api.platform || 'win32';
@@ -38,6 +44,10 @@ let smoother;
 let cycle;
 let eye;
 const rhythm = { work: 55, rest: 5 };
+
+/** Everything that has to re-render its text when the language changes registers here. */
+const relabelers = [];
+const onRelabel = (fn) => relabelers.push(fn);
 
 /* ---------------------------------------------------------------- saving */
 
@@ -71,6 +81,40 @@ function flashSaved() {
     .to(el, { opacity: 0, y: -6, duration: 0.5, ease: 'power2.in' }, '+=1.3');
 }
 
+/* ------------------------------------------------------- theme & language */
+
+let themeSeg;
+let langSeg;
+
+/** Switches the look. With an origin the new theme grows out of that point as a circle. */
+function changeTheme(value, origin) {
+  const lookChanges = resolveTheme(value) !== getTheme();
+  save({ theme: value });
+  themeSeg?.set(value);
+  const update = () => {
+    setTheme(value);
+    orb?.setTheme(getTheme());
+    orb?.renderNow();
+  };
+  if (lookChanges) withTransition(update, origin);
+  else update();
+}
+
+function changeLanguage(value) {
+  save({ language: value });
+  langSeg?.set(value);
+  withTransition(() => {
+    if (setLang(value)) relabel();
+    syncLangPill();
+  });
+}
+
+function syncLangPill() {
+  const pill = $('#bar-lang');
+  pill.dataset.lang = getLang();
+  $$('[data-lang]', pill).forEach((b) => b.setAttribute('aria-checked', String(b.dataset.lang === getLang())));
+}
+
 /* ------------------------------------------------------------------ bar */
 
 function setupBar() {
@@ -83,16 +127,23 @@ function setupBar() {
       api.action('window-close');
     }
   });
+
+  $('#bar-theme').addEventListener('click', (e) => {
+    changeTheme(getTheme() === 'dark' ? 'light' : 'dark', centerOf(e.currentTarget));
+  });
+  $$('#bar-lang [data-lang]').forEach((b) => b.addEventListener('click', () => changeLanguage(b.dataset.lang)));
+  syncLangPill();
 }
 
 /* ------------------------------------------------------------------ orb */
 
 function setupOrb() {
-  orb = createOrb($('#gl'), { colors: palette(settings.palette).colors });
+  orb = createOrb($('#gl'), { colors: palette(settings.palette).colors, theme: getTheme() });
   const p = orb.params;
   p.opacity = 0;
   p.size = 0.02;
   if (reducedMotion) p.speed = 0.35;
+  onThemeChange((theme) => orb.setTheme(theme));
 
   const anchors = {
     hero: $('.hero__anchor'),
@@ -182,24 +233,34 @@ function goto(name) {
   else el.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth' });
 }
 
+/* Headlines are split into words that rise into view once. A language switch re-splits them
+   without replaying what has already been seen. */
+const splits = new Map();
+
+function splitHeading(el) {
+  splits.get(el)?.revert();
+  const split = SplitText.create(el, {
+    type: 'lines,words',
+    mask: 'lines',
+    linesClass: 'line',
+    autoSplit: true,
+    onSplit: (self) => {
+      if (el.dataset.revealed) return undefined;
+      return gsap.from(self.words, {
+        yPercent: 115,
+        rotate: 3,
+        duration: 1.25,
+        ease: 'expo.out',
+        stagger: 0.055,
+        scrollTrigger: { trigger: el, start: 'top 88%', once: true, onEnter: () => (el.dataset.revealed = '1') },
+      });
+    },
+  });
+  splits.set(el, split);
+}
+
 function setupReveals() {
-  for (const el of $$('[data-split]')) {
-    SplitText.create(el, {
-      type: 'lines,words',
-      mask: 'lines',
-      linesClass: 'line',
-      autoSplit: true,
-      onSplit: (self) =>
-        gsap.from(self.words, {
-          yPercent: 115,
-          rotate: 3,
-          duration: 1.25,
-          ease: 'expo.out',
-          stagger: 0.055,
-          scrollTrigger: { trigger: el, start: 'top 88%', once: true },
-        }),
-    });
-  }
+  $$('[data-split]').forEach(splitHeading);
   for (const el of $$('[data-reveal]')) {
     gsap.from(el, {
       y: 50,
@@ -262,7 +323,7 @@ function setupMarquee() {
 /* ----------------------------------------------------------------- hero */
 
 let heroTime;
-const heroCache = {};
+let heroCache = {};
 
 function setText(key, el, text) {
   if (heroCache[key] === text) return;
@@ -304,8 +365,14 @@ function setupHero() {
   });
   document.addEventListener('keydown', (e) => e.key === 'Escape' && close());
 
-  const date = new Date();
-  $('#hero-date').textContent = date.toLocaleDateString('de-CH', { weekday: 'long', day: 'numeric', month: 'long' });
+  const renderDate = () => {
+    $('#hero-date').textContent = new Date().toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long' });
+  };
+  renderDate();
+  onRelabel(() => {
+    renderDate();
+    heroCache = {}; // the next frame writes every label in the new language
+  });
 
   gsap.ticker.add(renderHero);
 }
@@ -313,37 +380,37 @@ function setupHero() {
 function renderHero() {
   if (!snap) return;
   const now = Date.now();
-  let label = 'Nächste Pause in';
+  let label = t('hero.next');
   let time;
   let sub;
   let meter = 0;
-  let status = 'Fokus';
+  let status = t('status.focus');
   let mode = snap.mode;
-  let action = 'Jetzt Pause machen';
+  let action = t('hero.breakNow');
 
   switch (snap.mode) {
     case 'paused':
-      label = 'Pausiert bis';
+      label = t('hero.pausedUntil');
       time = clock(snap.pausedUntil);
-      sub = `Noch ${fmtMinutes(Math.ceil((snap.pausedUntil - now) / 60000))}. Atem wartet still.`;
-      status = 'Pausiert';
-      action = 'Fortsetzen';
+      sub = t('hero.pausedLeft', { time: fmtMinutes(Math.ceil((snap.pausedUntil - now) / 60000)) });
+      status = t('status.paused');
+      action = t('hero.resume');
       break;
     case 'break': {
       const b = snap.break;
-      label = b?.kind === 'micro' ? 'Mikropause' : 'Pause läuft';
+      label = b?.kind === 'micro' ? t('hero.microRunning') : t('hero.breakRunning');
       time = countdown((b?.endsAt ?? now) - now);
       meter = b ? (now - b.startedAt) / b.duration : 0;
-      sub = 'Schön, dass du sie machst.';
-      status = 'Pause';
-      action = 'Pause läuft';
+      sub = t('hero.breakSub');
+      status = t('status.break');
+      action = t('hero.breakBusy');
       break;
     }
     case 'idle':
-      label = 'Du bist gerade weg';
+      label = t('hero.away');
       time = '00:00';
-      sub = 'Die Uhr steht still, bis du zurück bist.';
-      status = 'Abwesend';
+      sub = t('hero.awaySub');
+      status = t('status.away');
       break;
     default: {
       const left = snap.nextBreakAt - now;
@@ -351,12 +418,12 @@ function renderHero() {
       time = countdown(left);
       meter = total > 0 ? 1 - left / total : 0;
       const focus = Math.max(0, Math.floor((now - snap.workStart) / 60000));
-      sub = focus < 1 ? 'Frisch im Fokus' : `Seit ${fmtMinutes(focus)} im Fokus`;
+      sub = focus < 1 ? t('hero.fresh') : t('hero.focusedFor', { time: fmtMinutes(focus) });
       if (snap.nextMicroAt && snap.nextMicroAt < snap.nextBreakAt - 60_000) {
-        sub += ` · Mikropause in ${countdown(snap.nextMicroAt - now)}`;
+        sub += ` · ${t('hero.microIn', { time: countdown(snap.nextMicroAt - now) })}`;
       }
       if (left < 5 * 60_000) {
-        status = 'Gleich Pause';
+        status = t('status.soon');
         mode = 'soon';
       }
       if (orb) orb.params.energy = gsap.utils.clamp(0, 1, (meter - 0.62) / 0.38);
@@ -398,9 +465,8 @@ function refreshRhythm() {
   const perDay = Math.max(1, Math.floor(480 / (rhythm.work + rhythm.rest)));
   const micro = microCount(rhythm.work) * perDay;
   $('#insight').innerHTML =
-    `An einem 8‑Stunden‑Tag sind das <b>${perDay} ${perDay === 1 ? 'Pause' : 'Pausen'}</b> ` +
-    `und <b>${perDay * rhythm.rest} Minuten</b> nur für dich` +
-    (micro ? `, dazu <b>${micro} Mikropausen</b> für die Augen.` : '.');
+    t('rhythm.insight', { breaks: tn('n.breaks', perDay), minutes: perDay * rhythm.rest }) +
+    (micro ? t('rhythm.insightMicro', { micro }) : t('rhythm.insightEnd'));
 
   $$('#presets button').forEach((b) => {
     const [w, r] = b.dataset.preset.split(',').map(Number);
@@ -422,7 +488,7 @@ function setupRhythm() {
     value: rhythm.work,
     spacing: 17,
     major: (v) => v % 30 === 0,
-    label: 'Fokuszeit in Minuten',
+    label: t('rhythm.focusAria'),
     onInput: (v) => {
       rhythm.work = v;
       workNum.set(v);
@@ -437,7 +503,7 @@ function setupRhythm() {
     value: rhythm.rest,
     spacing: 16,
     major: (v) => v % 5 === 0 || v === 1,
-    label: 'Pausenlänge in Minuten',
+    label: t('rhythm.breakAria'),
     onInput: (v) => {
       rhythm.rest = v;
       restNum.set(v);
@@ -455,6 +521,11 @@ function setupRhythm() {
     }),
   );
   refreshRhythm();
+  onRelabel(() => {
+    $('#ruler-work').setAttribute('aria-label', t('rhythm.focusAria'));
+    $('#ruler-rest').setAttribute('aria-label', t('rhythm.breakAria'));
+    refreshRhythm();
+  });
 }
 
 function updateCycleNow() {
@@ -478,8 +549,8 @@ function setupEyes() {
   const duration = new RollingText($('#rule-duration'), settings.micro.durationSec);
   const syncRows = () => {
     $$('[data-needs-micro]').forEach((row) => row.classList.toggle('is-disabled', !settings.micro.enabled));
-    $('#legend-interval').textContent = `alle ${settings.micro.intervalMin} Min.`;
-    $('#legend-duration').textContent = `${settings.micro.durationSec} Sekunden`;
+    $('#legend-interval').textContent = t('eyes.every', { n: settings.micro.intervalMin });
+    $('#legend-duration').textContent = t('eyes.seconds', { n: settings.micro.durationSec });
   };
 
   bindToggle($('#micro-enabled'), {
@@ -491,12 +562,12 @@ function setupEyes() {
       refreshRhythm();
     },
   });
-  bindStepper($('#micro-interval'), {
+  const intervalStepper = bindStepper($('#micro-interval'), {
     value: settings.micro.intervalMin,
     min: 10,
     max: 60,
     step: 5,
-    format: (v) => `alle ${v} Min.`,
+    format: (v) => t('eyes.every', { n: v }),
     onChange: (v) => {
       save({ micro: { intervalMin: v } });
       interval.set(v);
@@ -504,21 +575,27 @@ function setupEyes() {
       refreshRhythm();
     },
   });
-  bindStepper($('#micro-duration'), {
+  const durationStepper = bindStepper($('#micro-duration'), {
     value: settings.micro.durationSec,
     min: 10,
     max: 60,
     step: 5,
-    format: (v) => `${v} Sek.`,
+    format: (v) => t('eyes.sec', { n: v }),
     onChange: (v) => {
       save({ micro: { durationSec: v } });
       duration.set(v);
       syncRows();
     },
   });
-  bindSegmented($('#micro-style'), { value: settings.micro.style, onChange: (v) => save({ micro: { style: v } }) });
+  const styleSeg = bindSegmented($('#micro-style'), { value: settings.micro.style, onChange: (v) => save({ micro: { style: v } }) });
   syncRows();
   eye.setAwake(settings.micro.enabled);
+  onRelabel(() => {
+    syncRows();
+    intervalStepper.refresh();
+    durationStepper.refresh();
+    styleSeg.refresh();
+  });
 }
 
 /* -------------------------------------------------------------- program */
@@ -547,6 +624,9 @@ function setupProgram() {
     stretch: stretchVisual($('[data-visual="stretch"]')),
     move: moveVisual($('[data-visual="move"]')),
   };
+
+  const labelToggles = () =>
+    $$('.card .toggle[data-name]').forEach((el) => el.setAttribute('aria-label', t('program.inProgram', { name: t(el.dataset.name) })));
 
   for (const card of $$('.card')) {
     const key = card.dataset.activity;
@@ -596,8 +676,9 @@ function setupProgram() {
       });
     }
   }
+  labelToggles();
 
-  bindSegmented($('#breath-pattern'), {
+  const patternSeg = bindSegmented($('#breath-pattern'), {
     value: settings.breathPattern,
     onChange: (v) => {
       save({ breathPattern: v });
@@ -608,41 +689,20 @@ function setupProgram() {
   magnetic($('#try-break'), 0.2);
   $('#try-break').addEventListener('click', () => api.action('preview-break', 60));
   $('#try-micro').addEventListener('click', () => api.action('preview-micro'));
+
+  onRelabel(() => {
+    labelToggles();
+    patternSeg.refresh();
+    visuals.breath.update(settings.breathPattern);
+  });
 }
 
 /* ----------------------------------------------------------- strictness */
 
-const STRICT_COPY = {
-  gentle: {
-    quote: 'Ich erinnere dich. <em>Du</em> entscheidest.',
-    facts: [
-      ['Überspringen', 'ein Klick'],
-      ['Verschieben', 'so oft du willst'],
-      ['Esc-Taste', 'beendet die Pause'],
-    ],
-    button: 'Überspringen',
-    hint: 'Ein Klick genügt.',
-  },
-  balanced: {
-    quote: 'Gerade genug Reibung, damit du nicht <em>aus Reflex</em> wegklickst.',
-    facts: [
-      ['Überspringen', 'kurz gedrückt halten'],
-      ['Verschieben', 'höchstens 2×'],
-      ['Esc-Taste', 'wirkungslos'],
-    ],
-    button: 'Zum Überspringen halten',
-    hint: 'Halte gedrückt, bis sich der Knopf füllt.',
-  },
-  strict: {
-    quote: 'Für Tage, an denen du dich <em>selbst</em> nicht bremsen kannst.',
-    facts: [
-      ['Überspringen', 'nicht vorgesehen'],
-      ['Verschieben', 'genau einmal'],
-      ['Notausstieg', '5 Sekunden halten'],
-    ],
-    button: 'Notausstieg · 5 s halten',
-    hint: 'Nur für echte Notfälle.',
-  },
+const STRICT_FACTS = {
+  gentle: ['skip', 'snooze', 'esc'],
+  balanced: ['skip', 'snooze', 'esc'],
+  strict: ['skip', 'snooze', 'emergency'],
 };
 const HOLD_MS = { gentle: 0, balanced: 1600, strict: 5000 };
 
@@ -656,8 +716,8 @@ function setupStrictness() {
   const hold = holdButton($('#demo-hold'), {
     holdMs: HOLD_MS[settings.strictness],
     onComplete: () => {
-      label.textContent = 'Übersprungen ✓';
-      hint.textContent = 'Genau so. Im Ernstfall geht es zurück an die Arbeit.';
+      label.textContent = t('strict.skipped');
+      hint.textContent = t('strict.skippedHint');
       gsap.delayedCall(1.8, () => {
         hold.reset();
         render(settings.strictness, false);
@@ -666,16 +726,17 @@ function setupStrictness() {
   });
 
   function render(mode, animate = true) {
-    const copy = STRICT_COPY[mode];
     const apply = () => {
       split?.revert();
-      quote.innerHTML = copy.quote;
-      facts.innerHTML = copy.facts.map(([k, v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('');
-      label.textContent = copy.button;
-      hint.textContent = copy.hint;
+      quote.innerHTML = t(`strict.${mode}.quote`);
+      facts.innerHTML = STRICT_FACTS[mode]
+        .map((fact) => `<li><span>${t(`strict.fact.${fact}`)}</span><b>${t(`strict.${mode}.${fact}`)}</b></li>`)
+        .join('');
+      label.textContent = t(`strict.${mode}.button`);
+      hint.textContent = t(`strict.${mode}.hint`);
       hold.setHold(HOLD_MS[mode]);
-      if (!animate) return;
       split = SplitText.create(quote, { type: 'lines,words', mask: 'lines', linesClass: 'line' });
+      if (!animate) return;
       gsap.from(split.words, { yPercent: 110, duration: 0.9, ease: 'expo.out', stagger: 0.03 });
       gsap.from(facts.children, { x: -16, autoAlpha: 0, duration: 0.8, ease: 'expo.out', stagger: 0.06, delay: 0.1 });
     };
@@ -683,7 +744,7 @@ function setupStrictness() {
     gsap.to(split.words, { yPercent: -110, duration: 0.35, ease: 'power2.in', stagger: 0.012, onComplete: apply });
   }
 
-  bindSegmented($('#strictness'), {
+  const modeSeg = bindSegmented($('#strictness'), {
     value: settings.strictness,
     onChange: (v) => {
       save({ strictness: v });
@@ -691,7 +752,6 @@ function setupStrictness() {
     },
   });
   render(settings.strictness, false);
-  split = SplitText.create(quote, { type: 'lines,words', mask: 'lines', linesClass: 'line' });
 
   const syncWarn = () =>
     $$('[data-needs-warn]').forEach((row) => row.classList.toggle('is-disabled', !settings.warning.enabled));
@@ -702,28 +762,39 @@ function setupStrictness() {
       syncWarn();
     },
   });
-  bindStepper($('#warn-seconds'), {
+  const warnStepper = bindStepper($('#warn-seconds'), {
     value: settings.warning.seconds,
     min: 15,
     max: 180,
     step: 15,
-    format: (v) => `${v} Sek.`,
+    format: (v) => t('eyes.sec', { n: v }),
     onChange: (v) => save({ warning: { seconds: v } }),
   });
-  bindStepper($('#snooze-minutes'), {
+  const snoozeStepper = bindStepper($('#snooze-minutes'), {
     value: settings.snooze.minutes,
     min: 1,
     max: 30,
     step: 1,
-    format: (v) => `${v} Min.`,
+    format: (v) => t('strict.min', { n: v }),
     onChange: (v) => save({ snooze: { minutes: v } }),
   });
   syncWarn();
+
+  onRelabel(() => {
+    render(settings.strictness, false);
+    modeSeg.refresh();
+    warnStepper.refresh();
+    snoozeStepper.refresh();
+  });
 }
 
 /* ---------------------------------------------------------------- stats */
 
 let statsShown = false;
+let statsData = null;
+
+const weekday = (key) =>
+  new Date(`${key}T12:00:00`).toLocaleDateString(locale(), { weekday: 'short' }).replace(/\.$/, '');
 
 function countTo(el, value) {
   const obj = { v: Number(el.textContent) || 0 };
@@ -736,25 +807,25 @@ function countTo(el, value) {
 }
 
 function renderStats(data, animate) {
-  const t = data.today;
-  const taken = t.taken + t.natural;
-  const due = taken + t.skipped;
+  const today = data.today;
+  const taken = today.taken + today.natural;
+  const due = taken + today.skipped;
   const rate = due ? taken / due : 0;
-  const { h, m } = hoursMinutes(t.focusSec);
+  const { h, m } = hoursMinutes(today.focusSec);
 
-  const values = { '#stat-taken': taken, '#stat-focus-h': h, '#stat-focus-m': m, '#stat-micro': t.micro, '#stat-streak': data.streak };
+  const values = { '#stat-taken': taken, '#stat-focus-h': h, '#stat-focus-m': m, '#stat-micro': today.micro, '#stat-streak': data.streak };
   for (const [sel, v] of Object.entries(values)) {
     if (animate) countTo($(sel), v);
     else $(sel).textContent = v;
   }
   $('#stat-due').textContent = due;
-  $('#stat-streak-unit').textContent = data.streak === 1 ? 'Tag' : 'Tage';
+  $('#stat-streak-unit').textContent = t(`stats.day_${data.streak === 1 ? 'one' : 'other'}`);
   gsap.to('#compliance-ring', { strokeDashoffset: 326.73 * (1 - rate), duration: animate ? 1.8 : 0, ease: 'expo.out' });
 
-  let sentence = 'Noch keine Pause heute. Die erste kommt bestimmt.';
+  let sentence = t('stats.none');
   if (due > 0) {
-    const tail = rate >= 0.9 ? 'Stark.' : rate >= 0.6 ? 'Da geht noch was.' : 'Morgen wird ruhiger.';
-    sentence = `${taken} von ${due} Pausen genommen. ${tail}`;
+    const tail = rate >= 0.9 ? t('stats.great') : rate >= 0.6 ? t('stats.good') : t('stats.meh');
+    sentence = `${t('stats.summary', { taken, due })} ${tail}`;
   }
   $('#stats-sentence').textContent = sentence;
 
@@ -769,7 +840,7 @@ function renderStats(data, animate) {
           <span class="wbar__skip" style="height:${(d.skipped / max) * 100}%"></span>
           <span class="wbar__fill" style="height:${(done / max) * 100}%"></span>
         </div>
-        <span class="wbar__day">${d.label}</span>
+        <span class="wbar__day">${weekday(d.key)}</span>
       </div>`;
     })
     .join('');
@@ -778,31 +849,44 @@ function renderStats(data, animate) {
   }
 }
 
+const zeroStats = (data) => ({
+  ...data,
+  today: { ...data.today, taken: 0, natural: 0, skipped: 0, focusSec: 0, micro: 0 },
+  streak: 0,
+});
+
 async function setupStats() {
-  let data = await api.getStats();
-  renderStats({ ...data, today: { ...data.today, taken: 0, natural: 0, skipped: 0, focusSec: 0, micro: 0 }, streak: 0 }, false);
+  statsData = await api.getStats();
+  renderStats(zeroStats(statsData), false);
   ScrollTrigger.create({
     trigger: '#stats',
     start: 'top 70%',
     once: true,
     onEnter: () => {
-      renderStats(data, true);
+      renderStats(statsData, true);
       statsShown = true;
     },
   });
   // Keep the numbers fresh while the window is open.
   setInterval(async () => {
     if (!statsShown || document.hidden) return;
-    data = await api.getStats();
-    renderStats(data, false);
+    statsData = await api.getStats();
+    renderStats(statsData, false);
   }, 30_000);
+  onRelabel(() => statsData && renderStats(statsShown ? statsData : zeroStats(statsData), false));
 }
 
 /* --------------------------------------------------------------- system */
 
 function setupSystem() {
+  themeSeg = bindSegmented($('#theme-seg'), {
+    value: settings.theme,
+    onChange: (v) => changeTheme(v, centerOf($('#theme-seg [aria-checked="true"]'))),
+  });
+  langSeg = bindSegmented($('#lang-seg'), { value: settings.language, onChange: (v) => changeLanguage(v) });
+
   bindToggle($('#autostart'), { value: settings.autostart, onChange: (v) => save({ autostart: v }) });
-  if (info && !info.packaged) $('#autostart-note').textContent = 'Wird aktiv, sobald Atem installiert ist (Entwicklungsmodus).';
+  if (info && !info.packaged) $('#autostart-note').dataset.i18n = 'system.autostartDev';
 
   const syncIdle = () => $$('[data-needs-idle]').forEach((row) => row.classList.toggle('is-disabled', !settings.idle.enabled));
   bindToggle($('#idle-enabled'), {
@@ -812,12 +896,12 @@ function setupSystem() {
       syncIdle();
     },
   });
-  bindStepper($('#idle-threshold'), {
+  const idleStepper = bindStepper($('#idle-threshold'), {
     value: settings.idle.thresholdMin,
     min: 1,
     max: 30,
     step: 1,
-    format: (v) => `${v} Min.`,
+    format: (v) => t('strict.min', { n: v }),
     onChange: (v) => save({ idle: { thresholdMin: v } }),
   });
   syncIdle();
@@ -855,14 +939,16 @@ function setupSystem() {
   wrap.innerHTML = Object.entries(PALETTES)
     .map(
       ([key, p]) =>
-        `<button class="swatch" role="radio" aria-label="${p.name}" data-palette="${key}" ` +
+        `<button class="swatch" role="radio" data-palette="${key}" ` +
         `style="--c1:${p.colors[0]};--c2:${p.colors[1]};--c3:${p.colors[2]}"></button>`,
     )
     .join('');
+  const labelSwatches = () => $$('.swatch', wrap).forEach((s) => s.setAttribute('aria-label', t(`palette.${s.dataset.palette}`)));
   const mark = (key) =>
     $$('.swatch', wrap).forEach((s) => s.setAttribute('aria-checked', String(s.dataset.palette === key)));
+  labelSwatches();
   mark(settings.palette);
-  name.textContent = palette(settings.palette).name;
+  name.textContent = t(`palette.${settings.palette}`);
   $$('.swatch', wrap).forEach((s) =>
     s.addEventListener('click', () => {
       const key = s.dataset.palette;
@@ -874,23 +960,43 @@ function setupSystem() {
       gsap
         .timeline()
         .to(name, { yPercent: -60, autoAlpha: 0, duration: 0.25, ease: 'power2.in' })
-        .call(() => (name.textContent = palette(key).name))
+        .call(() => (name.textContent = t(`palette.${key}`)))
         .fromTo(name, { yPercent: 60, autoAlpha: 0 }, { yPercent: 0, autoAlpha: 1, duration: 0.7, ease: 'expo.out' });
     }),
   );
 
-  $('#version').textContent = `Atem ${info?.version ?? ''} · Mit Ruhe gebaut`;
+  const version = () => ($('#version').textContent = t('outro.version', { v: info?.version ?? '' }));
+  version();
   const quit = $('#quit');
-  let armed = false;
+  let armed = null;
   quit.addEventListener('click', () => {
     if (armed) return api.action('quit');
-    armed = true;
-    quit.textContent = 'Wirklich beenden? Nochmals klicken';
-    setTimeout(() => {
-      armed = false;
-      quit.textContent = 'Atem beenden';
+    quit.textContent = t('outro.quitConfirm');
+    armed = setTimeout(() => {
+      armed = null;
+      quit.textContent = t('outro.quit');
     }, 3500);
   });
+
+  onRelabel(() => {
+    themeSeg.refresh();
+    langSeg.refresh();
+    idleStepper.refresh();
+    labelSwatches();
+    name.textContent = t(`palette.${settings.palette}`);
+    version();
+  });
+}
+
+/* --------------------------------------------------------------- relabel */
+
+/** Puts every text on the page into the current language. */
+function relabel() {
+  for (const split of splits.values()) split.revert();
+  applyI18n(document);
+  for (const el of splits.keys()) splitHeading(el);
+  relabelers.forEach((fn) => fn());
+  requestAnimationFrame(() => ScrollTrigger.refresh());
 }
 
 /* ---------------------------------------------------------------- intro */
@@ -912,6 +1018,9 @@ function intro() {
 async function boot() {
   [settings, snap, info] = await Promise.all([api.getSettings(), api.getState(), api.getInfo()]);
   applyPalette(settings.palette);
+  setTheme(settings.theme);
+  setLang(settings.language);
+  applyI18n(document);
   setVolume(settings.sound.volume);
   await document.fonts?.ready;
 
@@ -928,6 +1037,7 @@ async function boot() {
   setupStrictness();
   setupStats();
   setupSystem();
+  applyI18n(document); // picks up texts that setup code switched (e.g. the dev-mode autostart note)
   setupSections();
   setupReveals();
   setupMarquee();
@@ -939,7 +1049,14 @@ async function boot() {
     updateCycleNow();
   });
   api.onSettings((s) => {
-    if (!Object.keys(pending).length) settings = s;
+    if (Object.keys(pending).length) return;
+    settings = s;
+    // Theme or language changed somewhere else: follow (our own echo changes nothing).
+    if (setTheme(s.theme)) orb?.setTheme(getTheme());
+    themeSeg?.set(s.theme);
+    langSeg?.set(s.language);
+    if (setLang(s.language)) relabel();
+    syncLangPill();
   });
   api.onEvent((e) => {
     if (e.type === 'goto') goto(e.section);
@@ -949,7 +1066,7 @@ async function boot() {
   if (!inElectron) {
     // Browser preview: background tabs throttle rAF, don't let GSAP stretch time.
     gsap.ticker.lagSmoothing(0);
-    window.__atem = { gsap, ScrollTrigger, smoother, orb, goto };
+    window.__atem = { gsap, ScrollTrigger, smoother, orb, goto, changeTheme, changeLanguage };
   }
 
   const section = query.get('section');

@@ -20,6 +20,8 @@ const DEFAULTS = {
   autostart: true,
   trayCountdown: true,
   palette: params.get('palette') || 'salbei',
+  theme: params.get('theme') || 'dark',
+  language: params.get('lang') || 'de',
   onboarded: false,
 };
 
@@ -43,6 +45,9 @@ export function createMock() {
   } catch {
     settings = merge(DEFAULTS, {});
   }
+  // Query parameters always win, so screenshots are reproducible.
+  if (params.get('theme')) settings.theme = params.get('theme');
+  if (params.get('lang')) settings.language = params.get('lang');
 
   const listeners = { state: new Set(), settings: new Set(), event: new Set() };
   const emit = (channel, data) => listeners[channel].forEach((cb) => cb(data));
@@ -110,10 +115,14 @@ export function createMock() {
     }, 400);
   }
 
-  const day = (label, taken, skipped, micro, focusH, isToday = false) => ({
-    key: label,
-    label,
-    isToday,
+  const dayKey = (daysAgo) => {
+    const d = new Date();
+    d.setDate(d.getDate() - daysAgo);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const day = (daysAgo, taken, skipped, micro, focusH) => ({
+    key: dayKey(daysAgo),
+    isToday: daysAgo === 0,
     taken,
     skipped,
     snoozed: 1,
@@ -137,13 +146,13 @@ export function createMock() {
     getStats: async () => ({
       today: { taken: 4, skipped: 1, snoozed: 1, micro: 11, microSkipped: 2, natural: 1, focusSec: 3 * 3600 + 12 * 60 },
       week: [
-        day('Do', 5, 1, 12, 5.8),
-        day('Fr', 6, 0, 14, 6.4),
-        day('Sa', 1, 0, 2, 1.1),
-        day('So', 0, 0, 0, 0),
-        day('Mo', 7, 1, 15, 7.2),
-        day('Di', 6, 2, 13, 6.1),
-        day('Mi', 4, 1, 11, 3.2, true),
+        day(6, 5, 1, 12, 5.8),
+        day(5, 6, 0, 14, 6.4),
+        day(4, 1, 0, 2, 1.1),
+        day(3, 0, 0, 0, 0),
+        day(2, 7, 1, 15, 7.2),
+        day(1, 6, 2, 13, 6.1),
+        day(0, 4, 1, 11, 3.2),
       ],
       streak: 5,
     }),

@@ -8,7 +8,9 @@ import { palette, applyPalette } from '../shared/palettes.js';
 import { countdown } from '../shared/format.js';
 import { chime, setVolume, createSea } from '../shared/sound.js';
 import { holdButton } from '../shared/ui.js';
-import { buildProgram, microProgram, breathAt, PHASE_WORD, GROUPS } from './program.js';
+import { t, setLang, ordinal, applyI18n } from '../shared/i18n.js';
+import { setTheme, getTheme, onThemeChange } from '../shared/theme.js';
+import { buildProgram, microProgram, breathAt } from './program.js';
 
 gsap.registerPlugin(SplitText);
 
@@ -17,7 +19,6 @@ const role = new URLSearchParams(location.search).get('role') || 'primary';
 const primary = role === 'primary';
 document.body.classList.add(`role-${role}`);
 
-const ORDINALS = ['erste', 'zweite', 'dritte', 'vierte', 'fünfte', 'sechste', 'siebte', 'achte', 'neunte', 'zehnte', 'elfte', 'zwölfte'];
 const GROUP_ORDER = ['breath', 'eyes', 'stretch', 'move'];
 
 let info;
@@ -30,6 +31,7 @@ let finished = false;
 let closing = false;
 let armedAt = Infinity; // input is ignored until the overlay has settled in
 let segments = [];
+let doneLine = null; // [key, n] of the closing sentence, so it can be re-translated
 
 const reveal = { k: 0 };
 const target = { x: 0, y: 0.08, size: 0.3, amp: 0.085, halo: 0.6, opacity: 1, speed: 0.6, dust: 1 };
@@ -38,15 +40,33 @@ const sound = (kind) => primary && settings.sound.chime && chime(kind);
 
 /* ------------------------------------------------------------------ copy */
 
+const stepTitle = (step) =>
+  step.micro ? t('step.micro.title') : step.id === 'breath' ? `${t(`breath.${step.pattern}`)}.` : t(`step.${step.id}.title`);
+
+function stepText(step) {
+  if (step.micro) return t('step.micro.text');
+  if (step.switched && step.id === 'palming') return t('step.palming.end');
+  if (step.switched && step.id === 'neck') return t('step.neck.switch');
+  return t(`step.${step.id}.text`);
+}
+
+function kicker(step) {
+  if (step.micro) return t('break.kind.micro');
+  if (!step.group) return t('break.kind.long');
+  const n = GROUP_ORDER.filter((g) => program.some((s) => s.group === g)).indexOf(step.group) + 1;
+  return `${String(n).padStart(2, '0')} · ${t(`group.${step.group}`)}`;
+}
+
 let titleSplit = null;
 
-function swapCopy(kicker, title, text, animate = true) {
+function swapCopy(kickerText, title, text, animate = true) {
   const apply = () => {
     titleSplit?.revert();
-    $('#kicker').textContent = kicker;
+    $('#kicker').textContent = kickerText;
     $('#title').textContent = title;
     $('#text').textContent = text;
     titleSplit = SplitText.create('#title', { type: 'lines,words', mask: 'lines', linesClass: 'line' });
+    if (!animate) return;
     gsap.from(titleSplit.words, { yPercent: 118, duration: 1.3, ease: 'expo.out', stagger: 0.06 });
     gsap.fromTo('#kicker', { autoAlpha: 0, y: 8 }, { autoAlpha: 1, y: 0, duration: 0.9, ease: 'expo.out', delay: 0.05 });
     gsap.fromTo(
@@ -99,7 +119,7 @@ function buildTimeline() {
     .map(
       (s) =>
         `<li style="flex:${s.end - s.start}"><span class="timeline__bar"><i></i></span>` +
-        `<span class="timeline__label">${GROUPS[s.group]}</span></li>`,
+        `<span class="timeline__label">${t(`group.${s.group}`)}</span></li>`,
     )
     .join('');
   segments.forEach((s, i) => {
@@ -125,9 +145,7 @@ function enterStep(index) {
   current = index;
   step.switched = false;
 
-  const n = GROUP_ORDER.filter((g) => program.some((s) => s.group === g)).indexOf(step.group) + 1;
-  const kicker = step.micro ? 'Mikropause' : step.group ? `${String(n).padStart(2, '0')} · ${GROUPS[step.group]}` : 'Pause';
-  swapCopy(kicker, step.title, step.text, !first);
+  swapCopy(kicker(step), stepTitle(step), stepText(step), !first);
   if (!first) sound('step');
 
   if (step.id === 'breath' && primary && settings.sound.ambient) sea ??= createSea();
@@ -136,9 +154,9 @@ function enterStep(index) {
   gsap.to('.dim', { opacity: step.id === 'palming' ? 0.72 : 0, duration: 2.4, ease: 'power2.inOut' });
 }
 
-/** Moves the orb for the current exercise. `t` = seconds into the step. */
-function choreograph(step, t) {
-  const left = step.duration - t;
+/** Moves the orb for the current exercise. `sec` = seconds into the step. */
+function choreograph(step, sec) {
+  const left = step.duration - sec;
   let word = '';
   let count = '';
   let follow = 0.06;
@@ -148,16 +166,16 @@ function choreograph(step, t) {
 
   switch (step.id) {
     case 'intro':
-      target.size = 0.28 + 0.02 * Math.sin(t * 1.1);
+      target.size = 0.28 + 0.02 * Math.sin(sec * 1.1);
       target.speed = 0.45;
       break;
     case 'breath': {
-      const b = breathAt(step.pattern, t);
+      const b = breathAt(step.pattern, sec);
       target.size = 0.22 + 0.17 * b.value;
       target.halo = 0.4 + 0.6 * b.value;
       target.speed = 0.45;
       orb.params.breath = b.value * 0.4;
-      word = PHASE_WORD[b.phase];
+      word = t(`phase.${b.phase}`);
       count = String(Math.ceil(b.left));
       follow = 0.12;
       sea?.breathe(b.value);
@@ -172,7 +190,7 @@ function choreograph(step, t) {
       follow = 0.03;
       break;
     case 'track': {
-      const a = t * ((Math.PI * 2) / 7.5);
+      const a = sec * ((Math.PI * 2) / 7.5);
       target.size = 0.05;
       target.halo = 1.1;
       target.x = 0.27 * Math.sin(a);
@@ -187,24 +205,24 @@ function choreograph(step, t) {
       target.speed = 0.25;
       target.dust = 0.3;
       if (left < 5) {
-        word = 'Augen auf';
+        word = t('phase.eyesOpen');
         target.opacity = 1;
         target.halo = 0.8;
       }
       if (left < 5 && !step.switched) {
         step.switched = true;
         sound('soft');
-        swapText('Öffne langsam die Augen und blinzle ein paar Mal.');
+        swapText(stepText(step));
       }
       break;
     case 'blink': {
       target.size = 0.2;
-      const phase = (t % 1.7) / 1.7;
+      const phase = (sec % 1.7) / 1.7;
       orb.params.squash = phase < 0.13 ? Math.sin((phase / 0.13) * Math.PI) : 0;
       break;
     }
     case 'shoulders': {
-      const a = t * ((Math.PI * 2) / 5.5);
+      const a = sec * ((Math.PI * 2) / 5.5);
       target.size = 0.19;
       target.x = 0.05 * Math.cos(a);
       target.y = 0.08 + 0.09 * Math.sin(a);
@@ -212,7 +230,7 @@ function choreograph(step, t) {
       break;
     }
     case 'neck': {
-      const right = t >= step.duration / 2;
+      const right = sec >= step.duration / 2;
       target.size = 0.19;
       target.x = right ? 0.13 : -0.13;
       target.y = 0.05;
@@ -220,12 +238,12 @@ function choreograph(step, t) {
       if (right && !step.switched) {
         step.switched = true;
         sound('soft');
-        swapText('Und jetzt sanft zur rechten Schulter.');
+        swapText(stepText(step));
       }
       break;
     }
     case 'reach': {
-      const p = Math.min(1, t / Math.max(4, step.duration * 0.6));
+      const p = Math.min(1, sec / Math.max(4, step.duration * 0.6));
       const e = 1 - Math.pow(1 - p, 3);
       target.y = 0.02 + 0.17 * e;
       target.size = 0.2 + 0.08 * e;
@@ -234,7 +252,7 @@ function choreograph(step, t) {
     }
     case 'move':
       target.size = 0.26;
-      target.y = 0.08 + 0.018 * Math.sin(t * 1.3);
+      target.y = 0.08 + 0.018 * Math.sin(sec * 1.3);
       target.speed = 0.7;
       break;
   }
@@ -253,6 +271,12 @@ function lerpOrb(k) {
 
 /* ---------------------------------------------------------------- finish */
 
+/** The closing sentence; `n` (breaks today) becomes an ordinal in the current language. */
+function showDoneLine(key, n) {
+  doneLine = [key, n];
+  $('#done-text').textContent = t(key, n ? { nth: ordinal(n) } : undefined);
+}
+
 async function finish() {
   if (finished) return;
   finished = true;
@@ -265,7 +289,7 @@ async function finish() {
   Object.assign(target, { x: 0, y: 0.12, size: 0.3, amp: 0.1, halo: 1, opacity: 1, speed: 0.8, dust: 1.2 });
 
   if (info.kind === 'micro') {
-    swapCopy('Mikropause', 'Danke.', 'Weiter geht es.', true);
+    swapCopy(t('break.kind.micro'), t('break.thanks'), t('break.onward'), true);
     gsap.to('#copy', { autoAlpha: 1, y: 0, duration: 0.6, delay: 0.7 });
     if (info.preview) setTimeout(() => api.action('complete'), 2400);
     return;
@@ -275,7 +299,7 @@ async function finish() {
   done.hidden = false;
   gsap.from(done.children, { y: 30, autoAlpha: 0, duration: 1.3, ease: 'expo.out', stagger: 0.08, delay: 0.5 });
   if (info.preview) {
-    $('#done-text').textContent = 'So fühlt sich eine Pause mit Atem an.';
+    showDoneLine('break.donePreview');
     return;
   }
   // Give the scheduler a moment to count this break before we read the stats.
@@ -283,10 +307,10 @@ async function finish() {
   try {
     const stats = await api.getStats();
     const n = stats.today.taken + stats.today.natural;
-    const nth = ORDINALS[n - 1] || `${n}.`;
-    $('#done-text').textContent = n > 0 ? `Das war deine ${nth} Pause heute. Dein Kopf dankt es dir.` : 'Dein Kopf dankt es dir.';
+    if (n > 0) showDoneLine('break.doneNth', n);
+    else showDoneLine('break.doneGeneric');
   } catch {
-    $('#done-text').textContent = 'Dein Kopf dankt es dir.';
+    showDoneLine('break.doneGeneric');
   }
 }
 
@@ -299,7 +323,7 @@ function frame() {
   const elapsed = (now - info.startedAt) / 1000;
   const total = info.duration / 1000;
 
-  const remaining = finished ? 'fertig' : countdown(Math.max(0, info.endsAt - now));
+  const remaining = finished ? t('break.done') : countdown(Math.max(0, info.endsAt - now));
   if (remaining !== lastRemaining) {
     lastRemaining = remaining;
     $('#remaining').textContent = remaining;
@@ -323,24 +347,26 @@ function frame() {
 
 /* -------------------------------------------------------------- controls */
 
-function setupControls() {
+function labelControls() {
   const skip = $('#skip');
   const label = $('#skip-label');
-  let holdMs = info.holdMs;
-
-  if (info.preview) {
-    label.textContent = 'Vorschau beenden';
-    holdMs = 0;
-  } else if (info.skip === 'click') {
-    label.textContent = 'Überspringen';
-  } else if (info.skip === 'hold') {
-    label.textContent = 'Zum Überspringen halten';
-  } else {
-    label.textContent = 'Notausstieg · 5 s halten';
+  if (info.preview) label.textContent = t('break.endPreview');
+  else if (info.skip === 'click') label.textContent = t('break.skip');
+  else if (info.skip === 'hold') label.textContent = t('break.hold');
+  else {
+    label.textContent = t('break.emergency');
     skip.classList.add('is-emergency');
   }
-  const hold = holdButton(skip, {
-    holdMs,
+  const snooze = $('#snooze');
+  if (!snooze.hidden) {
+    const hint = info.snoozesLeft < 10 ? ` <span class="btn__hint">${t('break.left', { n: info.snoozesLeft })}</span>` : '';
+    snooze.innerHTML = `${t('break.later', { n: info.snoozeMin })}${hint}`;
+  }
+}
+
+function setupControls() {
+  const hold = holdButton($('#skip'), {
+    holdMs: info.preview ? 0 : info.holdMs,
     onComplete: () => {
       if (!armed()) return hold.reset();
       api.action('skip');
@@ -350,10 +376,9 @@ function setupControls() {
   const snooze = $('#snooze');
   if (info.kind === 'long' && info.snoozesLeft > 0 && !info.preview) {
     snooze.hidden = false;
-    const hint = info.snoozesLeft < 10 ? `<span class="btn__hint">noch ${info.snoozesLeft}×</span>` : '';
-    snooze.innerHTML = `${info.snoozeMin} Min. später ${hint}`;
     snooze.addEventListener('click', () => armed() && api.action('snooze'));
   }
+  labelControls();
 
   $('#back').addEventListener('click', () => armed() && api.action('complete'));
 
@@ -378,6 +403,23 @@ function setupControls() {
   wake();
 }
 
+const kindLabel = () =>
+  info.preview ? t('break.kind.preview') : info.kind === 'micro' ? t('break.kind.micro') : t('break.kind.long');
+
+/** A language switch in the middle of a break: every visible word changes, nothing restarts. */
+function relabel() {
+  applyI18n(document);
+  $('#kind').textContent = kindLabel();
+  lastRemaining = '';
+  buildTimeline();
+  if (primary) labelControls();
+  const step = program[current];
+  if (step && !finished) swapCopy(kicker(step), stepTitle(step), stepText(step), false);
+  if (finished && info.kind === 'micro') swapCopy(t('break.kind.micro'), t('break.thanks'), t('break.onward'), false);
+  if (doneLine) showDoneLine(...doneLine);
+  phaseWord = '';
+}
+
 /* ------------------------------------------------------------------ boot */
 
 async function boot() {
@@ -388,9 +430,12 @@ async function boot() {
     return;
   }
   applyPalette(settings.palette);
+  setTheme(settings.theme);
+  setLang(settings.language);
+  applyI18n(document);
   setVolume(settings.sound.volume);
   document.body.classList.toggle('is-micro', info.kind === 'micro');
-  $('#kind').textContent = info.preview ? 'Vorschau' : info.kind === 'micro' ? 'Mikropause' : 'Pause';
+  $('#kind').textContent = kindLabel();
 
   program =
     info.kind === 'micro'
@@ -398,8 +443,9 @@ async function boot() {
       : buildProgram(info.duration / 1000, settings.activities, settings.breathPattern);
   buildTimeline();
 
-  orb = createOrb($('#gl'), { colors: palette(settings.palette).colors, particles: 560, pointer: false });
+  orb = createOrb($('#gl'), { colors: palette(settings.palette).colors, particles: 560, pointer: false, theme: getTheme() });
   Object.assign(orb.params, { size: 0, opacity: 0, y: 0.08, amp: 0.085, speed: 0.5 });
+  onThemeChange((theme) => orb.setTheme(theme));
 
   if (primary) setupControls();
   await document.fonts?.ready;
@@ -419,6 +465,11 @@ async function boot() {
     window.__atem = { gsap, orb, program, info };
   }
 
+  api.onSettings((s) => {
+    settings = s;
+    setTheme(s.theme);
+    if (setLang(s.language)) relabel();
+  });
   api.onEvent((e) => {
     if (e.type === 'break:finished') finish();
     if (e.type === 'break:closing' && !closing) {

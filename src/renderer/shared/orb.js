@@ -99,6 +99,7 @@ uniform float uEnergy;
 uniform float uTime;
 uniform float uOpacity;
 uniform float uGlow;
+uniform float uLight;
 varying vec3 vNormal;
 varying vec3 vView;
 varying vec3 vDir;
@@ -135,6 +136,15 @@ void main() {
   col += pow(spec, 28.0) * 0.28 + pow(spec, 120.0) * 0.35;
   col += pow(clamp(dot(N, normalize(vec3(0.6, -0.4, 0.7) + V)), 0.0, 1.0), 24.0) * 0.1 * rim;
 
+  // Light theme: a porcelain pearl. Bright pastel body, a slightly deeper silhouette so it
+  // holds its shape on paper, a whisper of iridescence at the very edge and a glossy highlight.
+  vec3 pastel = mix(c, vec3(1.0), 0.14);
+  vec3 bodyL = pastel * (0.6 + 0.46 * wrap);
+  bodyL = mix(bodyL, pastel * 0.7 + uC2 * 0.1, smoothstep(0.25, 1.0, fres) * 0.5);
+  bodyL += rim * pow(fres, 4.0) * 0.3;
+  bodyL += pow(spec, 26.0) * 0.22 + pow(spec, 150.0) * 0.5;
+  col = mix(col, bodyL, uLight);
+
   gl_FragColor = vec4(col, uOpacity);
 }
 `;
@@ -151,13 +161,15 @@ const HALO_FRAG = /* glsl */ `
 uniform vec3 uColor;
 uniform vec3 uColor2;
 uniform float uOpacity;
+uniform float uLight;
 varying vec2 vUv;
 void main() {
   vec2 p = vUv - 0.5;
   float d = length(p) * 2.0;
   float a = pow(clamp(1.0 - d, 0.0, 1.0), 2.8);
   vec3 col = mix(uColor, uColor2, smoothstep(-0.5, 0.5, p.x + p.y));
-  gl_FragColor = vec4(col * a * uOpacity, 1.0);
+  // Dark: pure added light. Light: a soft coloured wash (normal blending).
+  gl_FragColor = uLight > 0.5 ? vec4(col, a * uOpacity * 0.5) : vec4(col * a * uOpacity, 1.0);
 }
 `;
 
@@ -183,16 +195,18 @@ void main() {
 const DUST_FRAG = /* glsl */ `
 uniform vec3 uColor;
 uniform float uOpacity;
+uniform float uLight;
 varying float vAlpha;
 void main() {
   float d = length(gl_PointCoord - 0.5);
   float a = smoothstep(0.5, 0.0, d);
-  gl_FragColor = vec4(uColor * a * vAlpha * uOpacity, 1.0);
+  gl_FragColor = uLight > 0.5 ? vec4(uColor, a * vAlpha * uOpacity * 0.45) : vec4(uColor * a * vAlpha * uOpacity, 1.0);
 }
 `;
 
 const toColor = (hex) => new THREE.Color(hex);
 const WHITE = new THREE.Color('#ffffff');
+const INK = new THREE.Color('#2a2f45');
 
 // Pure additive light that leaves alpha untouched: glows add onto whatever is behind the
 // (transparent) canvas instead of turning into dark rectangles.
@@ -208,12 +222,19 @@ const GLOW = {
   blendDstAlpha: THREE.OneFactor,
 };
 
+/** Additive glow in the dark, a regular translucent wash on light backgrounds. */
+function setGlowMode(material, light) {
+  material.blending = light ? THREE.NormalBlending : THREE.CustomBlending;
+  material.uniforms.uLight.value = light ? 1 : 0;
+}
+
 /**
  * The breathing orb. Everything that moves is driven through `orb.params`,
  * which GSAP (or anything else) can tween directly.
  */
 export function createOrb(canvas, options = {}) {
-  const opts = { colors: ['#9BE7C4', '#6FB7FF', '#C9A8FF'], particles: 420, maxDpr: 2, pointer: true, ...options };
+  const opts = { colors: ['#9BE7C4', '#6FB7FF', '#C9A8FF'], particles: 420, maxDpr: 2, pointer: true, theme: 'dark', ...options };
+  let light = opts.theme === 'light';
 
   const params = {
     x: 0, // centre, fraction of viewport width (-0.5 .. 0.5)
@@ -236,7 +257,7 @@ export function createOrb(canvas, options = {}) {
   } catch (err) {
     console.warn('WebGL unavailable, orb disabled', err);
     canvas.classList.add('gl--fallback');
-    return { params, fallback: true, setColors() {}, start() {}, stop() {}, dispose() {} };
+    return { params, fallback: true, setColors() {}, setTheme() {}, renderNow() {}, start() {}, stop() {}, dispose() {} };
   }
   renderer.setClearColor(0x000000, 0);
   renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
@@ -259,13 +280,19 @@ export function createOrb(canvas, options = {}) {
     uEnergy: { value: 0 },
     uOpacity: { value: 1 },
     uGlow: { value: 1 },
+    uLight: { value: light ? 1 : 0 },
   };
   const orb = new THREE.Mesh(
     new THREE.SphereGeometry(1, 180, 140),
     new THREE.ShaderMaterial({ vertexShader: ORB_VERT, fragmentShader: ORB_FRAG, uniforms: orbUniforms, transparent: true }),
   );
 
-  const haloUniforms = { uColor: { value: c1.clone() }, uColor2: { value: c3.clone() }, uOpacity: { value: params.halo } };
+  const haloUniforms = {
+    uColor: { value: c1.clone() },
+    uColor2: { value: c3.clone() },
+    uOpacity: { value: params.halo },
+    uLight: { value: 0 },
+  };
   const halo = new THREE.Mesh(
     new THREE.PlaneGeometry(1, 1),
     new THREE.ShaderMaterial({ vertexShader: HALO_VERT, fragmentShader: HALO_FRAG, uniforms: haloUniforms, ...GLOW, depthTest: false }),
@@ -279,6 +306,7 @@ export function createOrb(canvas, options = {}) {
     uPixelRatio: { value: 1 },
     uColor: { value: c1.clone().lerp(WHITE, 0.55) },
     uOpacity: { value: 0.8 },
+    uLight: { value: 0 },
   };
   const dustGeo = new THREE.BufferGeometry();
   const pos = new Float32Array(opts.particles * 3);
@@ -302,6 +330,14 @@ export function createOrb(canvas, options = {}) {
   const group = new THREE.Group();
   group.add(halo, orb);
   scene.add(dust, group);
+
+  function setTheme(theme) {
+    light = theme === 'light';
+    orbUniforms.uLight.value = light ? 1 : 0;
+    setGlowMode(halo.material, light);
+    setGlowMode(dust.material, light);
+  }
+  setTheme(opts.theme);
 
   // Pointer: parallax, and a little extra life when the cursor comes close.
   const pointer = { x: 0, y: 0, tx: 0, ty: 0, near: 0, tnear: 0 };
@@ -360,7 +396,8 @@ export function createOrb(canvas, options = {}) {
     for (const key of ['uC1', 'uC2', 'uC3']) orbUniforms[key].value.lerp(target[key], 0.045);
     haloUniforms.uColor.value.copy(orbUniforms.uC1.value);
     haloUniforms.uColor2.value.copy(orbUniforms.uC3.value);
-    dustUniforms.uColor.value.copy(orbUniforms.uC1.value).lerp(WHITE, 0.55);
+    if (light) dustUniforms.uColor.value.copy(orbUniforms.uC2.value).lerp(INK, 0.45);
+    else dustUniforms.uColor.value.copy(orbUniforms.uC1.value).lerp(WHITE, 0.55);
 
     const radius = (params.size * view.h) / 2 / (1 + params.amp);
     const scale = radius * (1 + params.breath * 0.22);
@@ -403,6 +440,9 @@ export function createOrb(canvas, options = {}) {
       target.uC2.copy(b);
       target.uC3.copy(c);
     },
+    setTheme,
+    /** Draw one frame right now – e.g. so a view transition snapshot already shows the new look. */
+    renderNow: () => frame(performance.now()),
     start,
     stop,
     dispose() {

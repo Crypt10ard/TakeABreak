@@ -25,7 +25,7 @@ export function createCycle(root, initial) {
   svg.innerHTML = `
     <defs>
       <linearGradient id="cycleRest" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" style="stop-color: var(--a1)"/>
+        <stop offset="0" style="stop-color: var(--accent)"/>
         <stop offset="1" style="stop-color: var(--a2)"/>
       </linearGradient>
     </defs>`;

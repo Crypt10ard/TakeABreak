@@ -13,7 +13,7 @@
     <div class="card" id="card">
       <header class="head">
         <div class="brand"><span class="brand__logo" aria-hidden="true"></span>Atem</div>
-        <span class="chip" id="chip"><i aria-hidden="true"></i><span id="chip-text">Fokus</span></span>
+        <span class="chip" id="chip"><i aria-hidden="true"></i><span id="chip-text">&nbsp;</span></span>
       </header>
 
       <section class="dial" aria-live="polite">
@@ -26,24 +26,24 @@
         </svg>
         <div class="dial__center">
           <span class="dial__num display tabular" id="num">0</span>
-          <span class="dial__unit" id="unit">Min.</span>
+          <span class="dial__unit" id="unit">&nbsp;</span>
         </div>
       </section>
 
-      <p class="caption" id="caption">bis zur nächsten Pause</p>
+      <p class="caption" id="caption">&nbsp;</p>
       <p class="micro" id="micro">&nbsp;</p>
 
       <div class="actions">
         <button class="btn btn--primary btn--block" id="primary">
-          <span id="primary-label">Jetzt Pause machen</span><span class="btn__arrow" aria-hidden="true">→</span>
+          <span id="primary-label">&nbsp;</span><span class="btn__arrow" aria-hidden="true">→</span>
         </button>
         <div class="pauserow" id="pauserow">
-          <span class="label">Pausieren</span>
+          <span class="label" data-i18n="pop.pause"></span>
           <div class="chips">
-            <button data-pause="30">30 Min.</button>
-            <button data-pause="60">1 Std.</button>
-            <button data-pause="120">2 Std.</button>
-            <button data-pause="tomorrow">Morgen</button>
+            <button data-pause="30" data-i18n="pop.p30"></button>
+            <button data-pause="60" data-i18n="pop.p60"></button>
+            <button data-pause="120" data-i18n="pop.p120"></button>
+            <button data-pause="tomorrow" data-i18n="pop.tomorrow"></button>
           </div>
         </div>
       </div>
@@ -51,8 +51,8 @@
       <footer class="foot">
         <p class="today" id="today">&nbsp;</p>
         <div class="foot__links">
-          <button id="settings">Einstellungen</button>
-          <button id="quit">Beenden</button>
+          <button id="settings" data-i18n="pop.settings"></button>
+          <button id="quit" data-i18n="pop.quit"></button>
         </div>
       </footer>
     </div>

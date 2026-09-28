@@ -1,21 +1,22 @@
 import { gsap } from 'gsap';
+import { t } from '../shared/i18n.js';
 
 /** Breath patterns shared by the card preview: [phase, seconds]. Mirrors break/program.js. */
 export const PATTERNS = {
   calm: [
-    ['ein', 4],
-    ['aus', 6],
+    ['in', 4],
+    ['out', 6],
   ],
   box: [
-    ['ein', 4],
-    ['halten', 4],
-    ['aus', 4],
-    ['halten', 4],
+    ['in', 4],
+    ['hold', 4],
+    ['out', 4],
+    ['hold', 4],
   ],
   478: [
-    ['ein', 4],
-    ['halten', 7],
-    ['aus', 8],
+    ['in', 4],
+    ['hold', 7],
+    ['out', 8],
   ],
 };
 
@@ -24,9 +25,10 @@ export const PATTERNS = {
  * { play(), pause(), update?(arg) } so offscreen cards cost nothing.
  */
 export function breathVisual(root, pattern) {
-  root.innerHTML = '<div class="bv"><span class="bv__ring"></span><span class="bv__core"></span><span class="bv__label">ein</span></div>';
+  root.innerHTML = '<div class="bv"><span class="bv__ring"></span><span class="bv__core"></span><span class="bv__label"></span></div>';
   const core = root.querySelector('.bv__core');
   const label = root.querySelector('.bv__label');
+  label.textContent = t('visual.in');
   let tl;
 
   function build(key) {
@@ -34,10 +36,11 @@ export function breathVisual(root, pattern) {
     tl = gsap.timeline({ repeat: -1, paused: true });
     let scale = 0.5;
     for (const [phase, sec] of PATTERNS[key] || PATTERNS.calm) {
-      tl.call(() => (label.textContent = phase));
-      if (phase === 'ein') scale = 1;
-      else if (phase === 'aus') scale = 0.5;
-      tl.to(core, { scale, duration: sec, ease: phase === 'halten' ? 'none' : 'sine.inOut' });
+      // Read the label when the phase starts, so a language switch shows up right away.
+      tl.call(() => (label.textContent = t(`visual.${phase}`)));
+      if (phase === 'in') scale = 1;
+      else if (phase === 'out') scale = 0.5;
+      tl.to(core, { scale, duration: sec, ease: phase === 'hold' ? 'none' : 'sine.inOut' });
     }
   }
   build(pattern);

@@ -1,15 +1,14 @@
 // Turns "5 minutes, with breathing + eyes + stretching" into a timed, guided sequence.
+// Only ids and timings live here; the words come from the dictionary (step.<id>.title / .text).
 
 export const BREATH = {
   calm: {
-    name: 'Ruhiger Atem',
     phases: [
       ['in', 4],
       ['out', 6],
     ],
   },
   box: {
-    name: 'Box-Atmung',
     phases: [
       ['in', 4],
       ['hold', 4],
@@ -18,30 +17,12 @@ export const BREATH = {
     ],
   },
   478: {
-    name: '4-7-8-Atmung',
     phases: [
       ['in', 4],
       ['hold', 7],
       ['out', 8],
     ],
   },
-};
-
-export const PHASE_WORD = { in: 'Einatmen', hold: 'Halten', out: 'Ausatmen', rest: 'Halten' };
-export const GROUPS = { breath: 'Atmung', eyes: 'Augen', stretch: 'Dehnen', move: 'Bewegen' };
-
-const COPY = {
-  intro: ['Zeit für eine Pause.', 'Nimm die Hände von der Tastatur und lehn dich zurück.'],
-  breath: [null, 'Folge dem Licht. Durch die Nase ein, langsam durch den Mund wieder aus.'],
-  far: ['Schau in die Ferne.', 'Such dir einen Punkt, der mindestens sechs Meter weit weg ist. Am besten draussen.'],
-  track: ['Folge dem Licht.', 'Nur mit den Augen. Der Kopf bleibt ganz ruhig.'],
-  palming: ['Augen zu.', 'Reibe die Handflächen warm und lege sie sanft über die geschlossenen Augen.'],
-  blink: ['Blinzeln.', 'Locker und bewusst. Das befeuchtet die Augen wieder.'],
-  shoulders: ['Schultern kreisen.', 'Gross und langsam nach hinten. Atme dabei ruhig weiter.'],
-  neck: ['Nacken dehnen.', 'Neige den Kopf sanft zur linken Schulter und halte.'],
-  reach: ['Streck dich.', 'Steh auf, Arme nach oben und ganz lang werden.'],
-  move: ['Beweg dich.', 'Hol dir ein Glas Wasser, geh ein paar Schritte, schau aus dem Fenster.'],
-  micro: ['Blick in die Ferne.', 'Such dir einen Punkt weit weg und lass die Augen dort ruhen.'],
 };
 
 const WEIGHT = { breath: 1.25, eyes: 1, stretch: 0.85, move: 0.7 };
@@ -76,7 +57,7 @@ function expand(group, duration, pattern) {
 }
 
 /**
- * @returns {Array<{id, group, title, text, duration, start}>} steps whose durations add up to exactly totalSec.
+ * @returns {Array<{id, group, duration, start, pattern}>} steps whose durations add up to exactly totalSec.
  */
 export function buildProgram(totalSec, activities, pattern = 'calm') {
   const total = Math.max(10, Math.round(totalSec));
@@ -126,22 +107,14 @@ export function buildProgram(totalSec, activities, pattern = 'calm') {
   }
 
   return steps.map((s) => {
-    const [title, text] = COPY[s.id];
-    const step = {
-      ...s,
-      start,
-      title: s.id === 'breath' ? `${BREATH[breathPattern].name}.` : title,
-      text,
-      pattern: breathPattern,
-    };
+    const step = { ...s, start, pattern: breathPattern };
     start += s.duration;
     return step;
   });
 }
 
 export function microProgram(totalSec) {
-  const [title, text] = COPY.micro;
-  return [{ id: 'far', group: 'eyes', title, text, duration: Math.max(5, Math.round(totalSec)), start: 0, micro: true }];
+  return [{ id: 'far', group: 'eyes', duration: Math.max(5, Math.round(totalSec)), start: 0, micro: true }];
 }
 
 /** Where in the breath are we? → { phase, progress (0..1), left (s), value (0..1 lung fullness) } */

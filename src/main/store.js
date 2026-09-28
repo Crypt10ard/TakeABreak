@@ -19,7 +19,9 @@ class JsonFile {
   constructor(file, defaults = {}) {
     this.file = file;
     this.existed = fs.existsSync(file);
-    this.data = deepMerge(defaults, this.#read());
+    /** Exactly what was on disk – lets callers tell "missing" from "default". */
+    this.stored = this.#read();
+    this.data = deepMerge(defaults, this.stored);
     this.timer = null;
   }
 

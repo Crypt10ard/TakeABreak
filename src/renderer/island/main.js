@@ -5,6 +5,8 @@ import { api, inElectron } from '../shared/api.js';
 import { applyPalette } from '../shared/palettes.js';
 import { clock, shortCountdown } from '../shared/format.js';
 import { chime, setVolume } from '../shared/sound.js';
+import { t, setLang } from '../shared/i18n.js';
+import { setTheme } from '../shared/theme.js';
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const island = $('#island');
@@ -35,54 +37,54 @@ const ICON = {
   close: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2L2 10"/></svg>',
 };
 
+// Live countdowns are written into this span by tick().
+const LEFT = '<span data-left></span>';
+
 function template(p) {
   switch (p.kind) {
     case 'warn':
       return {
         icon: ICON.ring(true) + '<span class="icon-count" data-count></span>',
-        title: 'Gleich ist Pause',
-        sub: 'in <b data-left></b> · bring den Gedanken zu Ende',
+        title: t('island.warn.title'),
+        sub: t('island.warn.sub', { time: LEFT }),
         actions:
-          '<button class="btn btn--accent" data-act="now">Jetzt</button>' +
-          (p.snoozesLeft > 0 ? `<button class="btn" data-act="snooze">+${p.snoozeMin} Min.</button>` : ''),
+          `<button class="btn btn--accent" data-act="now">${t('island.now')}</button>` +
+          (p.snoozesLeft > 0 ? `<button class="btn" data-act="snooze">${t('island.plus', { n: p.snoozeMin })}</button>` : ''),
       };
     case 'micro':
       return {
         icon: ICON.ring(false) + ICON.eye,
-        title: 'Blick in die Ferne',
-        sub: 'noch <b data-left></b> · such dir einen Punkt weit weg',
-        actions: `<button class="island__close" data-act="skip-micro" aria-label="Überspringen">${ICON.close}</button>`,
+        title: t('island.micro.title'),
+        sub: t('island.micro.sub', { time: LEFT }),
+        actions: `<button class="island__close" data-act="skip-micro" aria-label="${t('island.skip')}">${ICON.close}</button>`,
       };
     case 'micro-done':
-      return { icon: ICON.check, title: 'Danke.', sub: 'Deine Augen auch.', autoHide: 2000 };
+      return { icon: ICON.check, title: t('island.microDone.title'), sub: t('island.microDone.sub'), autoHide: 2000 };
     case 'hello':
       return {
         icon: ICON.orb,
-        title: 'Atem ist da',
-        sub: `Nächste Pause um <b>${clock(p.nextBreakAt)}</b>`,
-        actions: '<button class="btn" data-act="settings">Einstellungen</button>',
+        title: t('island.hello.title'),
+        sub: t('island.nextAt', { time: clock(p.nextBreakAt) }),
+        actions: `<button class="btn" data-act="settings">${t('island.settings')}</button>`,
         autoHide: 5200,
       };
     case 'welcome':
-      return { icon: ICON.check, title: 'Willkommen zurück', sub: 'Deine Abwesenheit zählt als Pause.', autoHide: 5000 };
+      return { icon: ICON.check, title: t('island.welcome.title'), sub: t('island.welcome.sub'), autoHide: 5000 };
     case 'paused':
       return {
         icon: ICON.pause,
-        title: 'Erinnerungen pausiert',
-        sub: `bis <b>${clock(p.until)}</b>`,
-        actions: '<button class="btn" data-act="resume">Fortsetzen</button>',
+        title: t('island.paused.title'),
+        sub: t('island.paused.sub', { time: clock(p.until) }),
+        actions: `<button class="btn" data-act="resume">${t('island.resume')}</button>`,
         autoHide: 4200,
       };
     case 'resumed':
-      return { icon: ICON.orb, title: 'Weiter geht’s', sub: `Nächste Pause um <b>${clock(p.nextBreakAt)}</b>`, autoHide: 3600 };
+      return { icon: ICON.orb, title: t('island.resumed.title'), sub: t('island.nextAt', { time: clock(p.nextBreakAt) }), autoHide: 3600 };
     case 'tray-hint':
       return {
         icon: ICON.orb,
-        title: 'Ich bleibe im Hintergrund',
-        sub:
-          p.platform === 'darwin'
-            ? 'Du findest mich oben rechts in der <b>Menüleiste</b>.'
-            : 'Unten rechts in der <b>Taskleiste</b>, eventuell unter <b>^</b>.',
+        title: t('island.hint.title'),
+        sub: p.platform === 'darwin' ? t('island.hint.mac') : t('island.hint.win'),
         autoHide: 7500,
       };
     default:
@@ -91,11 +93,11 @@ function template(p) {
 }
 
 function render(p) {
-  const t = template(p);
+  const tpl = template(p);
   body.innerHTML =
-    `<div class="island__icon">${t.icon}</div>` +
-    `<div class="island__text"><span class="island__title">${t.title}</span><span class="island__sub">${t.sub}</span></div>` +
-    (t.actions ? `<div class="island__actions">${t.actions}</div>` : '');
+    `<div class="island__icon">${tpl.icon}</div>` +
+    `<div class="island__text"><span class="island__title">${tpl.title}</span><span class="island__sub">${tpl.sub}</span></div>` +
+    (tpl.actions ? `<div class="island__actions">${tpl.actions}</div>` : '');
   body.querySelectorAll('[data-act]').forEach((btn) => btn.addEventListener('click', () => act(btn.dataset.act)));
   if (p.kind === 'micro') {
     const eye = $('.icon-eye', body);
@@ -108,7 +110,7 @@ function render(p) {
   if (p.kind === 'micro-done' || p.kind === 'welcome') {
     gsap.fromTo($('.icon-check path', body), { strokeDashoffset: 24 }, { strokeDashoffset: 0, duration: 0.7, ease: 'power3.out', delay: 0.2 });
   }
-  return t;
+  return tpl;
 }
 
 function measure() {
@@ -132,7 +134,7 @@ function show(p) {
   shownAt = Date.now();
   clearTimeout(hideTimer);
 
-  const t = render(p);
+  const tpl = render(p);
   tick();
   const width = measure();
   const kids = [...body.children];
@@ -153,7 +155,7 @@ function show(p) {
   }
 
   if (settings?.sound.chime && (p.kind === 'warn' || p.kind === 'micro')) chime('soft');
-  if (t.autoHide) scheduleHide(t.autoHide);
+  if (tpl.autoHide) scheduleHide(tpl.autoHide);
 }
 
 function hide() {
@@ -221,7 +223,7 @@ function tick() {
     setRing(ms / total);
   } else if (payload.kind === 'micro') {
     const ms = Math.max(0, payload.endsAt - now);
-    if (left) left.textContent = `${Math.ceil(ms / 1000)} Sek.`;
+    if (left) left.textContent = t('island.sec', { n: Math.ceil(ms / 1000) });
     setRing(1 - ms / payload.duration);
     if (ms <= 0 && !microDone) {
       microDone = true;
@@ -245,8 +247,16 @@ document.addEventListener('mouseleave', () => setInteractive(false));
 async function boot() {
   settings = await api.getSettings();
   applyPalette(settings.palette);
+  setTheme(settings.theme);
+  setLang(settings.language);
   setVolume(settings.sound.volume);
-  api.onSettings((s) => (settings = s));
+  api.onSettings((s) => {
+    settings = s;
+    applyPalette(s.palette);
+    setTheme(s.theme);
+    // Re-render the current message in the new language.
+    if (setLang(s.language) && payload && !exiting) show(payload);
+  });
   api.onEvent((e) => {
     if (e.type === 'island') show(e);
   });

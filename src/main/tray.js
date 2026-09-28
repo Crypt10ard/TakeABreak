@@ -3,6 +3,7 @@
 const { Tray, Menu, nativeImage, nativeTheme } = require('electron');
 const { execFile } = require('child_process');
 const { renderIcon } = require('./tray-icon');
+const { t, clock } = require('./i18n');
 
 const isMac = process.platform === 'darwin';
 const isWin = process.platform === 'win32';
@@ -23,8 +24,6 @@ function formatDuration(ms) {
   return m % 60 ? `${h} h ${m % 60} min` : `${h} h`;
 }
 
-const clock = (ts) => new Date(ts).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
-
 /** Tray / menu bar icon with a live progress ring, tooltip and context menu. */
 class TrayController {
   constructor({ getSettings, onClick, onAction }) {
@@ -34,6 +33,7 @@ class TrayController {
     this.snap = null;
     this.iconKey = '';
     this.tip = '';
+    this.status = '';
     this.title = '';
 
     this.tray = new Tray(this.#image('work', 0));
@@ -86,28 +86,28 @@ class TrayController {
     const now = Date.now();
     let state = 'work';
     let progress = 0;
-    let tip;
+    let status;
     let title = '';
 
     switch (snap.mode) {
       case 'break':
         state = 'break';
-        tip = snap.break?.kind === 'micro' ? 'Atem · Mikropause' : 'Atem · Pause läuft';
+        status = snap.break?.kind === 'micro' ? t('tray.micro') : t('tray.break');
         break;
       case 'paused':
         state = 'paused';
-        tip = `Atem · pausiert bis ${clock(snap.pausedUntil)}`;
+        status = t('tray.paused', { time: clock(snap.pausedUntil) });
         break;
       case 'idle':
         state = 'idle';
-        tip = 'Atem · du bist gerade weg';
+        status = t('tray.away');
         break;
       default: {
         const left = snap.nextBreakAt - now;
         const total = snap.nextBreakAt - snap.workStart;
         progress = total > 0 ? Math.min(1, Math.max(0, 1 - left / total)) : 0;
         state = left <= SOON_MS ? 'soon' : 'work';
-        tip = `Atem · nächste Pause in ${formatDuration(left)}`;
+        status = t('tray.next', { dur: formatDuration(left) });
         if (this.getSettings().trayCountdown) title = ` ${minutesLeft(left)}′`;
       }
     }
@@ -118,6 +118,8 @@ class TrayController {
       this.iconKey = key;
       this.tray.setImage(this.#image(state, step / STEPS));
     }
+    this.status = status;
+    const tip = `Atem · ${status}`;
     if (tip !== this.tip) {
       this.tip = tip;
       this.tray.setToolTip(tip);
@@ -128,29 +130,34 @@ class TrayController {
     }
   }
 
+  /** Re-render texts right away (e.g. after a language change). */
+  refresh() {
+    if (this.snap) this.update(this.snap);
+  }
+
   #menu() {
     const mode = this.snap?.mode;
     const inBreak = mode === 'break';
     const act = (name, payload) => () => this.onAction(name, payload);
     return Menu.buildFromTemplate([
-      { label: this.tip.replace(/^Atem · /, '') || 'Atem', enabled: false },
+      { label: this.status || 'Atem', enabled: false },
       { type: 'separator' },
-      { label: 'Jetzt Pause machen', enabled: !inBreak, click: act('break-now') },
-      { label: 'Mikropause jetzt', enabled: !inBreak, click: act('micro-now') },
+      { label: t('menu.breakNow'), enabled: !inBreak, click: act('break-now') },
+      { label: t('menu.microNow'), enabled: !inBreak, click: act('micro-now') },
       mode === 'paused'
-        ? { label: 'Erinnerungen fortsetzen', click: act('resume') }
+        ? { label: t('menu.resume'), click: act('resume') }
         : {
-            label: 'Erinnerungen pausieren',
+            label: t('menu.pause'),
             submenu: [
-              { label: '30 Minuten', click: act('pause', 30) },
-              { label: '1 Stunde', click: act('pause', 60) },
-              { label: '2 Stunden', click: act('pause', 120) },
-              { label: 'Bis morgen früh', click: act('pause', 'tomorrow') },
+              { label: t('menu.p30'), click: act('pause', 30) },
+              { label: t('menu.p60'), click: act('pause', 60) },
+              { label: t('menu.p120'), click: act('pause', 120) },
+              { label: t('menu.tomorrow'), click: act('pause', 'tomorrow') },
             ],
           },
       { type: 'separator' },
-      { label: 'Einstellungen …', click: act('open-settings') },
-      { label: 'Atem beenden', click: act('quit') },
+      { label: t('menu.settings'), click: act('open-settings') },
+      { label: t('menu.quit'), click: act('quit') },
     ]);
   }
 

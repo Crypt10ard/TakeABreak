@@ -1,4 +1,5 @@
 import { gsap } from 'gsap';
+import { t } from './i18n.js';
 
 export const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -210,6 +211,8 @@ export function bindSegmented(el, { value, onChange }) {
 
   return {
     set: (v) => select(v, false),
+    /** Re-measure after the labels changed (e.g. another language). */
+    refresh: () => place(false),
     get value() {
       return current;
     },
@@ -220,9 +223,9 @@ export function bindSegmented(el, { value, onChange }) {
 export function bindStepper(el, { value, min, max, step = 1, format = (v) => v, onChange }) {
   el.classList.add('stepper');
   el.innerHTML = `
-    <button class="stepper__btn" data-dir="-1" aria-label="Weniger"><svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg></button>
+    <button class="stepper__btn" data-dir="-1" data-i18n-aria="ui.less" aria-label="${t('ui.less')}"><svg viewBox="0 0 16 16"><path d="M3.5 8h9"/></svg></button>
     <span class="stepper__value tabular" tabindex="0" role="spinbutton"></span>
-    <button class="stepper__btn" data-dir="1" aria-label="Mehr"><svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg></button>`;
+    <button class="stepper__btn" data-dir="1" data-i18n-aria="ui.more" aria-label="${t('ui.more')}"><svg viewBox="0 0 16 16"><path d="M3.5 8h9M8 3.5v9"/></svg></button>`;
   const out = el.querySelector('.stepper__value');
   const roll = new RollingText(out, format(value));
   let current = value;
@@ -294,5 +297,9 @@ export function bindStepper(el, { value, min, max, step = 1, format = (v) => v, 
     out.addEventListener('pointerup', up);
   });
 
-  return { set: (v) => set(v, false) };
+  return {
+    set: (v) => set(v, false),
+    /** Re-render the value, e.g. after the language (and so the unit) changed. */
+    refresh: () => roll.set(format(current), false),
+  };
 }

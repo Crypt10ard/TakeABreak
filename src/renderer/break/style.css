@@ -322,6 +322,26 @@ body.is-idle * {
   display: none;
 }
 
+/* ----------------------------------------------------------- light theme */
+
+/* Warm, slightly dimmed paper – never a glaring white screen during an eye break. */
+[data-theme='light'] .backdrop {
+  background: radial-gradient(130% 100% at 50% 42%, rgb(247 245 240 / 0.93) 0%, rgb(232 229 222 / 0.985) 62%);
+}
+
+[data-theme='light'] .backdrop__glow {
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--a2) 20%, transparent), transparent);
+}
+
+[data-theme='light'] .phase {
+  color: var(--ink);
+  text-shadow: 0 2px 24px rgb(255 255 255 / 0.6);
+}
+
+[data-theme='light'] .controls .btn {
+  background: rgb(255 255 255 / 0.6);
+}
+
 @media (max-height: 760px) {
   .copy {
     top: 66%;

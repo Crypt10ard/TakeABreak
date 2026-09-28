@@ -5,6 +5,8 @@ import { api, inElectron } from '../shared/api.js';
 import { applyPalette } from '../shared/palettes.js';
 import { clock, countdown, hoursMinutes } from '../shared/format.js';
 import { RollingText } from '../shared/ui.js';
+import { t, tn, setLang, applyI18n } from '../shared/i18n.js';
+import { setTheme } from '../shared/theme.js';
 
 const $ = (sel) => document.querySelector(sel);
 const CIRC = 2 * Math.PI * 92;
@@ -13,7 +15,7 @@ document.documentElement.dataset.platform = new URLSearchParams(location.search)
 let snap = null;
 let num;
 let dialOffset = CIRC;
-const cache = {};
+let cache = {};
 const setText = (el, text) => {
   if (cache[el.id] === text) return;
   cache[el.id] = text;
@@ -35,10 +37,10 @@ function buildTicks() {
 /** Big number + unit for a duration: minutes, or seconds in the last minute, or h:mm above 99 min. */
 function amount(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000));
-  if (s < 60) return [String(s), 'Sek.'];
+  if (s < 60) return [String(s), t('pop.sec')];
   const m = Math.ceil(s / 60);
-  if (m <= 99) return [String(m), m === 1 ? 'Minute' : 'Minuten'];
-  return [`${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`, 'Stunden'];
+  if (m <= 99) return [String(m), tn('pop.minute', m)];
+  return [`${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`, t('pop.hours')];
 }
 
 function render() {
@@ -49,44 +51,44 @@ function render() {
   let value = ['–', ''];
   let caption = '';
   let micro = '';
-  let chip = 'Fokus';
-  let primary = 'Jetzt Pause machen';
+  let chip = t('status.focus');
+  let primary = t('hero.breakNow');
   let disabled = false;
 
   switch (snap.mode) {
     case 'paused':
       value = amount(snap.pausedUntil - now);
-      caption = `pausiert bis ${clock(snap.pausedUntil)}`;
-      chip = 'Pausiert';
-      primary = 'Fortsetzen';
+      caption = t('pop.pausedUntil', { time: clock(snap.pausedUntil) });
+      chip = t('status.paused');
+      primary = t('hero.resume');
       progress = 1;
       break;
     case 'break': {
       const b = snap.break;
       value = amount((b?.endsAt ?? now) - now);
-      caption = b?.kind === 'micro' ? 'Mikropause läuft' : 'Pause läuft';
-      chip = 'Pause';
-      primary = 'Pause läuft';
+      caption = b?.kind === 'micro' ? t('pop.microRunning') : t('pop.breakRunning');
+      chip = t('status.break');
+      primary = t('hero.breakBusy');
       disabled = true;
       progress = b ? Math.min(1, (now - b.startedAt) / b.duration) : 0;
       break;
     }
     case 'idle':
-      caption = 'Du bist gerade weg. Die Uhr steht still.';
-      chip = 'Abwesend';
+      caption = t('pop.away');
+      chip = t('status.away');
       break;
     default: {
       const left = snap.nextBreakAt - now;
       const total = snap.nextBreakAt - snap.workStart;
       progress = total > 0 ? 1 - left / total : 0;
       value = amount(left);
-      caption = 'bis zur nächsten Pause';
+      caption = t('pop.untilNext');
       if (snap.nextMicroAt && snap.nextMicroAt < snap.nextBreakAt - 60_000) {
-        micro = `Mikropause in ${countdown(snap.nextMicroAt - now)}`;
+        micro = t('pop.microIn', { time: countdown(snap.nextMicroAt - now) });
       }
       if (left < 5 * 60_000) {
         mode = 'soon';
-        chip = 'Gleich Pause';
+        chip = t('status.soon');
       }
     }
   }
@@ -112,10 +114,10 @@ function render() {
 async function refreshToday() {
   try {
     const stats = await api.getStats();
-    const t = stats.today;
-    const { h, m } = hoursMinutes(t.focusSec);
-    const breaks = t.taken + t.natural;
-    $('#today').innerHTML = `Heute <b>${breaks}</b> ${breaks === 1 ? 'Pause' : 'Pausen'} · <b>${h > 0 ? `${h} h ${m}` : `${m} min`}</b> Fokus`;
+    const today = stats.today;
+    const { h, m } = hoursMinutes(today.focusSec);
+    const breaks = today.taken + today.natural;
+    $('#today').innerHTML = tn('pop.today', breaks, { focus: h > 0 ? `${h} h ${m}` : `${m} min` });
   } catch {
     /* stats are a nice-to-have here */
   }
@@ -131,6 +133,13 @@ function entrance() {
     .fromTo('#card', { opacity: 0, scale: 0.94, y: 10 }, { opacity: 1, scale: 1, y: 0, duration: 0.55, ease: 'expo.out' })
     .fromTo(ITEMS, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.6, ease: 'expo.out', stagger: 0.04 }, 0.06)
     .fromTo('#dial-fill', { strokeDashoffset: CIRC }, { strokeDashoffset: dialOffset, duration: 1.1, ease: 'expo.out' }, 0.1);
+}
+
+function relabel() {
+  applyI18n(document);
+  cache = {};
+  render();
+  refreshToday();
 }
 
 function setup() {
@@ -151,11 +160,11 @@ function setup() {
   quit.addEventListener('click', () => {
     if (armed) return api.action('quit');
     quit.classList.add('is-armed');
-    quit.textContent = 'Sicher?';
+    quit.textContent = t('pop.sure');
     armed = setTimeout(() => {
       armed = null;
       quit.classList.remove('is-armed');
-      quit.textContent = 'Beenden';
+      quit.textContent = t('pop.quit');
     }, 3000);
   });
 
@@ -167,6 +176,9 @@ function setup() {
 async function boot() {
   const [settings, state] = await Promise.all([api.getSettings(), api.getState()]);
   applyPalette(settings.palette);
+  setTheme(settings.theme);
+  setLang(settings.language);
+  applyI18n(document);
   snap = state;
   setup();
   render();
@@ -178,7 +190,11 @@ async function boot() {
     snap = s;
     render();
   });
-  api.onSettings((s) => applyPalette(s.palette));
+  api.onSettings((s) => {
+    applyPalette(s.palette);
+    setTheme(s.theme);
+    if (setLang(s.language)) relabel();
+  });
   api.onEvent((e) => {
     if (e.type === 'popover:show') {
       render();

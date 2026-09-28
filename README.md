@@ -21,13 +21,16 @@ Atmung, Augenübungen, Dehnen und Bewegung.
 | **Bilanz** | Eingehaltene Pausen, Fokuszeit, Mikropausen, Serie und die letzten 7 Tage. |
 | **Autostart** | Startet beim Anmelden automatisch und unsichtbar im Hintergrund. |
 | **Klang** | Synthetisierte Klangschale und ein Meeresrauschen, das mit deinem Atem kommt und geht. |
+| **Hell & Dunkel** | *Dunkel*, *Hell* oder *System* (folgt Windows/macOS live). Schnellschalter mit Sonne/Mond oben rechts im Einstellungsfenster – das neue Theme wächst als Kreis aus dem Schalter. Alle Fenster, auch die Pause, wechseln mit. |
+| **Deutsch & English** | *Deutsch*, *English* oder *System* (Systemsprache). Umschaltbar über „DE / EN“ oben rechts oder unter *Feinschliff*; auch Tray-Menü und Tooltips wechseln sofort. |
 
 ---
 
 ## Installieren
 
 ### Windows
-1. `release\Atem-Setup-1.0.0.exe` doppelklicken. Atem installiert sich für deinen Benutzer (kein Admin nötig) und startet danach.
+1. `release\Atem-Setup-<version>.exe` doppelklicken. Atem installiert sich für deinen Benutzer (kein Admin nötig) und startet danach.
+   Updates installierst du genauso darüber; Einstellungen und Statistik bleiben erhalten.
 2. Windows SmartScreen meldet evtl. „Unbekannter Herausgeber“ (die App ist nicht signiert):
    **Weitere Informationen → Trotzdem ausführen**.
 3. **Tipp:** Windows 11 versteckt neue Tray-Symbole oft unter dem **^**-Pfeil unten rechts.
@@ -85,7 +88,10 @@ npm run icons      # App-Icons aus SVG neu erzeugen
 
 Browser-Vorschau mit Parametern, z. B.:
 `/break/?kind=long&duration=300&t=110` (Pause, bei Sekunde 110) ·
-`/island/?kind=warn` · `/popover/?mode=paused`.
+`/island/?kind=warn` · `/popover/?mode=paused` · jeweils mit `&theme=light&lang=en` kombinierbar.
+
+Texte: alle Formulierungen stehen in `src/shared/strings.js` (Deutsch und Englisch, gleiche Schlüssel).
+`npm test` prüft, dass beide Sprachen vollständig sind und dieselben Platzhalter verwenden.
 
 Nützliche Umgebungsvariablen:
 `ATEM_PROFILE=test` (separates Profil, kein Autostart-Eintrag) ·
@@ -108,7 +114,8 @@ src/renderer/
   break/          Pausen-Overlay; program.js baut das geführte Programm
   island/         Kapsel für Vorwarnung, Mikropause, Hinweise
   popover/        Mini-Panel am Tray-Symbol
-  shared/         Design-Tokens, Orb-Shader, Klang (WebAudio), UI-Bausteine, Browser-Mock
+  shared/         Design-Tokens (hell/dunkel), Orb-Shader, Klang (WebAudio), i18n, UI-Bausteine, Browser-Mock
+src/shared/       Wörterbuch (strings.js) und Sprachlogik – von Hauptprozess und Fenstern gemeinsam genutzt
 ```
 
 Technik: Electron 44 · GSAP 3.15 (ScrollTrigger, ScrollSmoother, SplitText, Draggable, Inertia) ·

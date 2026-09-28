@@ -1,3 +1,5 @@
+import { locale } from './i18n.js';
+
 export const pad = (n) => String(n).padStart(2, '0');
 
 /** 83_000 → "01:23", 3_723_000 → "1:02:03" */
@@ -15,7 +17,7 @@ export function shortCountdown(ms) {
   return `${Math.floor(total / 60)}:${pad(total % 60)}`;
 }
 
-export const clock = (ts) => new Date(ts).toLocaleTimeString('de-CH', { hour: '2-digit', minute: '2-digit' });
+export const clock = (ts) => new Date(ts).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
 
 /** 95 → "1 h 35 min" */
 export function minutes(min) {
