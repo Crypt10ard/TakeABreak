@@ -14,12 +14,13 @@ const TAKEN_SHARE = 0.6;
  *
  * Modes:
  *   work   – counting down to the next break
- *   break  – a long or micro break is running (or finished, waiting for the user)
+ *   break  – a long or micro break is running (or finished, waiting for the user),
+ *            or – in front desk mode – set aside and waiting to come back (`current.aside`)
  *   idle   – the user is away; the clock is frozen
  *   paused – reminders are paused until `pausedUntil`
  *
  * Events: state, warn, warn-cancel, break-start, break-finished, break-end,
- *         idle-start, idle-end, paused, resumed
+ *         aside, aside-end, idle-start, idle-end, paused, resumed
  */
 class Scheduler extends EventEmitter {
   constructor({ getSettings, getIdleSeconds, stats, now = Date.now }) {
@@ -87,6 +88,7 @@ class Scheduler extends EventEmitter {
 
     // A long gap between two ticks means the machine slept: that was time away.
     if (gap > MIN && this.mode === 'work') this.#enterIdle(now - gap);
+    else if (gap > MIN && this.current?.aside) this.#asideToAway(now - gap);
 
     switch (this.mode) {
       case 'paused':
@@ -146,6 +148,10 @@ class Scheduler extends EventEmitter {
       this.mode = 'work';
       return;
     }
+    if (b.aside) {
+      this.#tickAside(now, b);
+      return;
+    }
     if (!b.finished && now >= b.endsAt) {
       b.finished = true;
       this.stats.bump(b.kind === 'long' ? 'taken' : 'micro');
@@ -156,6 +162,24 @@ class Scheduler extends EventEmitter {
     }
     // Failsafe: never leave a finished overlay up forever.
     if (b.finished && now - b.endsAt > 30 * MIN) this.#endBreak('done');
+  }
+
+  /** A break set aside waits with its clock stopped. It comes back on time – or turns into time away. */
+  #tickAside(now, b) {
+    const s = this.getSettings();
+    const idleSec = this.getIdleSeconds();
+    if (s.idle.enabled && idleSec >= s.idle.thresholdMin * 60) {
+      this.#asideToAway(Math.max(b.aside.since, now - idleSec * 1000));
+      return;
+    }
+    // Never come back onto a locked screen: wait until someone is there again.
+    if (now >= b.aside.returnAt && !this.locked) this.resumeAside();
+  }
+
+  /** Nobody at the desk any more: the waiting break ends, and from `since` on it is simply time away. */
+  #asideToAway(since) {
+    this.#endBreak('away');
+    this.#enterIdle(since);
   }
 
   #enterIdle(since) {
@@ -230,12 +254,56 @@ class Scheduler extends EventEmitter {
     if (this.mode !== 'break') return;
     const b = this.current;
     if (!b.finished) {
-      const share = (this.now() - b.startedAt) / b.duration;
+      // Time spent set aside is not break time.
+      const share = ((b.aside?.since ?? this.now()) - b.startedAt) / b.duration;
       if (b.kind === 'long') this.stats.bump(share >= TAKEN_SHARE ? 'taken' : 'skipped');
       else this.stats.bump(share >= TAKEN_SHARE ? 'micro' : 'microSkipped');
     }
     this.#endBreak(b.finished ? 'done' : 'skipped');
     this.#emitState();
+  }
+
+  /**
+   * Front desk mode: the break steps out of the way – the phone rang, someone is at the desk – and
+   * waits with its clock stopped until `reception.returnMin` is over (or it is called back earlier).
+   */
+  setAside() {
+    const b = this.current;
+    const s = this.getSettings();
+    if (this.mode !== 'break' || !b || b.finished || b.aside || !s.reception.enabled) return false;
+    if (b.kind === 'micro') {
+      // Twenty seconds are not worth keeping: a micro break simply makes way.
+      this.skipBreak();
+      return true;
+    }
+    const now = this.now();
+    b.aside = { since: now, returnAt: now + s.reception.returnMin * MIN };
+    this.emit('aside', this.breakInfo());
+    this.#emitState();
+    return true;
+  }
+
+  /** The break comes back exactly where it was set aside. */
+  resumeAside() {
+    const b = this.current;
+    if (this.mode !== 'break' || !b?.aside) return false;
+    const shift = this.now() - b.aside.since;
+    b.startedAt += shift;
+    b.endsAt += shift;
+    b.aside = null;
+    this.emit('aside-end', this.breakInfo());
+    this.#emitState();
+    return true;
+  }
+
+  /** Still busy when it wants to come back: the waiting break gives you another round. */
+  extendAside() {
+    const b = this.current;
+    if (this.mode !== 'break' || !b?.aside) return false;
+    b.aside = { ...b.aside, returnAt: this.now() + this.getSettings().reception.returnMin * MIN };
+    this.emit('aside', this.breakInfo());
+    this.#emitState();
+    return true;
   }
 
   snooze() {
@@ -338,6 +406,8 @@ class Scheduler extends EventEmitter {
       escSkips: rules.escSkips,
       snoozesLeft: b.kind === 'long' ? this.snoozesLeft : 0,
       snoozeMin: s.snooze.minutes,
+      reception: s.reception.enabled,
+      returnMin: s.reception.returnMin,
     };
   }
 

@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, powerMonitor, Menu, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, powerMonitor, Menu, nativeTheme, globalShortcut } = require('electron');
 const path = require('path');
 const os = require('os');
 
@@ -27,6 +27,10 @@ let scheduler;
 let windows;
 let tray;
 let quitting = false;
+let escapeArmed = false;
+/** A preview break that was set aside: { info, since, returnAt, timer }. */
+let previewAside = null;
+const PREVIEW_RETURN_MS = 25_000;
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -36,6 +40,7 @@ if (!app.requestSingleInstanceLock()) {
   app.on('activate', () => windows?.openSettings()); // macOS: app icon clicked while running
   app.on('window-all-closed', () => {}); // live on in the tray
   app.on('before-quit', shutdown);
+  app.on('will-quit', () => globalShortcut.unregisterAll());
   app.whenReady().then(boot);
 }
 
@@ -74,13 +79,16 @@ function boot() {
       windows.showIsland({ kind: 'tray-hint', platform: process.platform });
     },
     onBreakClosed: () => {
-      if (windows.breakInfo?.preview || getSettings().strictness === 'gentle') runAction('skip');
+      // Alt+F4 / Cmd+W: front desk mode sets the break aside, gentle mode skips it, otherwise nothing happens.
+      if (getSettings().reception.enabled) runAction('aside');
+      else if (windows.breakInfo?.preview || getSettings().strictness === 'gentle') runAction('skip');
     },
     onBreakCrash: () => {
       // Never leave a broken overlay covering the screen.
       windows.closeBreak({ immediate: true });
       scheduler.skipBreak();
     },
+    onBreakChange: () => syncEscape(),
   });
   tray = new TrayController({ getSettings, onClick: (bounds) => windows.togglePopover(bounds), onAction: runAction });
 
@@ -149,6 +157,7 @@ function wireScheduler() {
   scheduler.on('warn', (warning) => windows.showIsland({ kind: 'warn', ...warning }));
   scheduler.on('warn-cancel', () => windows.closeIsland('warn'));
   scheduler.on('break-start', (info) => {
+    cancelPreviewAside();
     if (info.fullscreen) windows.openBreak(info);
     else windows.showIsland({ kind: 'micro', ...info });
   });
@@ -162,7 +171,14 @@ function wireScheduler() {
     }
     // A finished or skipped capsule animates itself out; anything else closes it right away.
     if (kind === 'micro' && (reason === 'paused' || reason === 'snoozed')) windows.closeIsland('micro');
+    windows.closeIsland('aside');
   });
+  // Front desk mode: the overlays collapse into the capsule, and come back out of it.
+  scheduler.on('aside', (info) => {
+    windows.closeBreak({ aside: true });
+    windows.showIsland(asideIsland(info));
+  });
+  scheduler.on('aside-end', (info) => windows.openBreak({ ...info, returning: true }));
   scheduler.on('idle-start', () => windows.closeIsland('warn'));
   scheduler.on('idle-end', ({ natural, awayMs }) => {
     if (natural) windows.showIsland({ kind: 'welcome', awayMs });
@@ -201,6 +217,7 @@ function updateSettings(patch) {
     tray.refresh();
     if (isMac) Menu.setApplicationMenu(macMenu());
   }
+  if (prev.reception.enabled !== next.reception.enabled) syncEscape();
   scheduler.settingsChanged(prev, next);
   windows.broadcast('settings', next);
   return next;
@@ -227,7 +244,72 @@ function previewInfo(kind, seconds) {
     escSkips: rules.escSkips,
     snoozesLeft: 0,
     snoozeMin: s.snooze.minutes,
+    reception: s.reception.enabled,
+    returnMin: s.reception.returnMin,
   };
+}
+
+/* ------------------------------------------------------- front desk mode */
+
+/** What the capsule of a break that was set aside shows. */
+function asideIsland(info, preview = false) {
+  return {
+    kind: 'aside',
+    preview,
+    since: info.aside.since,
+    returnAt: info.aside.returnAt,
+    left: info.endsAt - info.aside.since,
+    // A preview comes back after a few seconds – offering "+10 min" there would be a lie.
+    returnMin: preview ? 0 : info.returnMin,
+  };
+}
+
+/**
+ * While a break covers the screen in front desk mode, Esc sets it aside – even when the overlay never
+ * got the keyboard focus (Windows leaves it with the app you were typing in). The key is released
+ * the moment the overlay is gone, so Esc belongs to your apps again.
+ */
+function syncEscape() {
+  const want = Boolean(windows?.breakInfo) && settingsStore.data.reception.enabled;
+  if (want === escapeArmed) return;
+  if (want) {
+    escapeArmed = globalShortcut.register('Escape', () => windows.breakEvent({ type: 'break:key', key: 'Escape' }));
+  } else {
+    globalShortcut.unregister('Escape');
+    escapeArmed = false;
+  }
+}
+
+/** "Try a break" in front desk mode: the preview can be set aside too, and returns after a few seconds. */
+function asidePreview() {
+  const info = windows.breakInfo;
+  if (!info?.preview || !settingsStore.data.reception.enabled) return false;
+  if (info.kind === 'micro') {
+    // Like a real micro break: twenty seconds simply make way.
+    windows.closeBreak();
+    return true;
+  }
+  cancelPreviewAside();
+  const since = Date.now();
+  previewAside = { info, since, returnAt: since + PREVIEW_RETURN_MS, timer: setTimeout(returnPreview, PREVIEW_RETURN_MS) };
+  windows.closeBreak({ aside: true });
+  windows.showIsland(asideIsland({ ...info, aside: previewAside }, true));
+  return true;
+}
+
+function returnPreview() {
+  if (!previewAside) return false;
+  const { info, since } = previewAside;
+  cancelPreviewAside();
+  const shift = Date.now() - since;
+  windows.openBreak({ ...info, startedAt: info.startedAt + shift, endsAt: info.endsAt + shift, returning: true });
+  return true;
+}
+
+function cancelPreviewAside() {
+  if (!previewAside) return;
+  clearTimeout(previewAside.timer);
+  previewAside = null;
 }
 
 function runAction(name, payload, senderWin) {
@@ -235,16 +317,23 @@ function runAction(name, payload, senderWin) {
   switch (name) {
     case 'break-now':
       windows.hidePopover();
-      scheduler.startBreak('long', { manual: true });
+      // A break that waits aside comes back instead of a new one starting.
+      if (scheduler.current?.aside) scheduler.resumeAside();
+      else scheduler.startBreak('long', { manual: true });
       return true;
     case 'micro-now':
       windows.hidePopover();
       scheduler.startBreak('micro', { manual: true });
       return true;
     case 'preview-break':
+      // A real break (running or waiting aside) always wins over a preview.
+      if (scheduler.mode === 'break') return false;
+      cancelPreviewAside();
       windows.openBreak(previewInfo('long', payload));
       return true;
     case 'preview-micro': {
+      if (scheduler.mode === 'break') return false;
+      cancelPreviewAside();
       const info = previewInfo('micro', payload);
       if (info.fullscreen) windows.openBreak(info);
       else windows.showIsland({ kind: 'micro', ...info });
@@ -267,6 +356,13 @@ function runAction(name, payload, senderWin) {
     case 'skip-micro':
       if (!payload?.preview && scheduler.current?.kind === 'micro') scheduler.skipBreak();
       return true;
+    case 'aside':
+      return preview ? asidePreview() : scheduler.setAside();
+    case 'aside-return':
+      windows.hidePopover();
+      return previewAside ? returnPreview() : scheduler.resumeAside();
+    case 'aside-extend':
+      return scheduler.extendAside();
     case 'pause': {
       windows.hidePopover();
       if (payload === 'tomorrow') {
@@ -291,6 +387,9 @@ function runAction(name, payload, senderWin) {
       return true;
     case 'island-done':
       windows.closeIsland();
+      // A notice that briefly took the capsule hands it back to the break waiting aside.
+      if (scheduler.current?.aside) windows.showIsland(asideIsland(scheduler.breakInfo()));
+      else if (previewAside) windows.showIsland(asideIsland({ ...previewAside.info, aside: previewAside }, true));
       return true;
     case 'popover-hide':
       windows.hidePopover();

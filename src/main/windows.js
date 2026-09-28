@@ -59,12 +59,13 @@ function floatingWindow(opts) {
  *   break    – one full-screen overlay per display during a break
  */
 class WindowManager {
-  constructor({ dev, getState, onSettingsClosed, onBreakClosed, onBreakCrash }) {
+  constructor({ dev, getState, onSettingsClosed, onBreakClosed, onBreakCrash, onBreakChange }) {
     this.dev = dev;
     this.getState = getState;
     this.onSettingsClosed = onSettingsClosed;
     this.onBreakClosed = onBreakClosed;
     this.onBreakCrash = onBreakCrash;
+    this.onBreakChange = onBreakChange;
     this.windowedBreaks = process.env.ATEM_WINDOWED === '1';
     this.settings = null;
     this.popover = null;
@@ -318,12 +319,19 @@ class WindowManager {
       win.on('unresponsive', () => this.onBreakCrash?.());
       return win;
     });
+    this.onBreakChange?.();
   }
 
-  closeBreak({ immediate = false } = {}) {
+  /**
+   * `aside`: front desk mode – the overlays collapse towards the capsule at the top, fast, because
+   * someone needs the screen right now.
+   */
+  closeBreak({ immediate = false, aside = false } = {}) {
     const wins = this.breakWins;
+    const had = this.breakInfo;
     this.breakWins = [];
     this.breakInfo = null;
+    if (had) this.onBreakChange?.();
     for (const win of wins) {
       if (!alive(win)) continue;
       if (immediate) {
@@ -332,9 +340,14 @@ class WindowManager {
       }
       // Let the page fade out; clicks already fall through to the desktop.
       win.setIgnoreMouseEvents(true);
-      win.webContents.send('event', { type: 'break:closing' });
-      setTimeout(() => alive(win) && win.destroy(), 900);
+      win.webContents.send('event', { type: aside ? 'break:aside' : 'break:closing' });
+      setTimeout(() => alive(win) && win.destroy(), aside ? 480 : 900);
     }
+  }
+
+  /** Something for the break pages to react to, e.g. a key pressed while they had no focus. */
+  breakEvent(payload) {
+    for (const win of this.breakWins) if (alive(win)) win.webContents.send('event', payload);
   }
 }
 

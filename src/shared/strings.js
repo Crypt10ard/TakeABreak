@@ -11,6 +11,7 @@ const de = {
   'status.break': 'Pause',
   'status.paused': 'Pausiert',
   'status.away': 'Abwesend',
+  'status.aside': 'Wartet',
 
   // window bar & rail
   'bar.home': 'Atem, nach oben',
@@ -49,6 +50,9 @@ const de = {
   'hero.breakNow': 'Jetzt Pause machen',
   'hero.resume': 'Fortsetzen',
   'hero.breakBusy': 'Pause läuft',
+  'hero.resumeBreak': 'Pause fortsetzen',
+  'hero.asideRunning': 'Pause wartet, zurück in',
+  'hero.asideSub': 'Kommt von selbst wieder. Oder du holst sie jetzt zurück.',
   'hero.pause': 'Pausieren',
   'hero.p30': '30 Min.',
   'hero.p60': '1 Std.',
@@ -159,6 +163,15 @@ const de = {
   'strict.snoozeBy': 'Verschieben um',
   'strict.snoozeByDesc': 'Wenn es gerade wirklich nicht passt.',
   'strict.min': '{n} Min.',
+  'front.label': 'Empfangsmodus',
+  'front.title': 'Das Telefon klingelt <em>mitten</em> in der Pause?',
+  'front.text':
+    'Für alle, die erreichbar bleiben müssen: Die Pause rückt mit einem Klick zur Seite, wartet oben als kleine Kapsel und kommt von selbst zurück. Nichts geht verloren.',
+  'front.enable': 'Kurz beiseite erlauben',
+  'front.enableDesc': 'Ein Klick oder Esc genügt, auch im strikten Modus.',
+  'front.return': 'Kommt zurück nach',
+  'front.returnDesc': 'Oder früher, mit einem Klick auf die Kapsel.',
+  'front.escFact': 'schiebt die Pause beiseite',
 
   // stats
   'stats.label': 'Bilanz',
@@ -220,6 +233,7 @@ const de = {
   'pop.microRunning': 'Mikropause läuft',
   'pop.breakRunning': 'Pause läuft',
   'pop.away': 'Du bist gerade weg. Die Uhr steht still.',
+  'pop.asideUntil': 'bis die Pause weitergeht',
   'pop.microIn': 'Mikropause in {time}',
   'pop.sec': 'Sek.',
   'pop.minute_one': 'Minute',
@@ -259,6 +273,10 @@ const de = {
   'island.hint.title': 'Ich bleibe im Hintergrund',
   'island.hint.mac': 'Du findest mich oben rechts in der <b>Menüleiste</b>.',
   'island.hint.win': 'Unten rechts in der <b>Taskleiste</b>, eventuell unter <b>^</b>.',
+  'island.aside.title': 'Pause wartet',
+  'island.aside.sub': 'noch <b>{left}</b> · zurück in <b>{time}</b>',
+  'island.aside.soon': 'Gleich geht die Pause weiter',
+  'island.aside.soonSub': 'in <b>{time}</b> · noch <b>{left}</b> Pause',
 
   // break overlay
   'break.kind.long': 'Pause',
@@ -315,6 +333,8 @@ const de = {
   'break.enter': 'Enter ↵',
   'break.thanks': 'Danke.',
   'break.onward': 'Weiter geht es.',
+  'break.aside': 'Kurz beiseite',
+  'break.asideAria': 'Pause kurz beiseiteschieben (Esc)',
 
   // tray & menus (main process)
   'tray.micro': 'Mikropause',
@@ -322,7 +342,9 @@ const de = {
   'tray.paused': 'pausiert bis {time}',
   'tray.away': 'du bist gerade weg',
   'tray.next': 'nächste Pause in {dur}',
+  'tray.aside': 'Pause wartet, zurück in {dur}',
   'menu.breakNow': 'Jetzt Pause machen',
+  'menu.resumeBreak': 'Pause fortsetzen',
   'menu.microNow': 'Mikropause jetzt',
   'menu.resume': 'Erinnerungen fortsetzen',
   'menu.pause': 'Erinnerungen pausieren',
@@ -349,6 +371,7 @@ const en = {
   'status.break': 'Break',
   'status.paused': 'Paused',
   'status.away': 'Away',
+  'status.aside': 'On hold',
 
   // window bar & rail
   'bar.home': 'Atem, back to top',
@@ -387,6 +410,9 @@ const en = {
   'hero.breakNow': 'Take a break now',
   'hero.resume': 'Resume',
   'hero.breakBusy': 'Break in progress',
+  'hero.resumeBreak': 'Resume break',
+  'hero.asideRunning': 'Break on hold, back in',
+  'hero.asideSub': 'It comes back on its own. Or bring it back now.',
   'hero.pause': 'Pause reminders',
   'hero.p30': '30 min',
   'hero.p60': '1 hour',
@@ -497,6 +523,15 @@ const en = {
   'strict.snoozeBy': 'Snooze by',
   'strict.snoozeByDesc': 'For when it really doesn’t fit right now.',
   'strict.min': '{n} min',
+  'front.label': 'Front desk mode',
+  'front.title': 'The phone rings <em>mid-break?</em>',
+  'front.text':
+    'For everyone who has to stay reachable: one click moves the break out of the way. It waits at the top as a small capsule and comes back on its own. Nothing gets lost.',
+  'front.enable': 'Allow setting it aside',
+  'front.enableDesc': 'One click or Esc is enough, even in strict mode.',
+  'front.return': 'Comes back after',
+  'front.returnDesc': 'Or sooner, with a click on the capsule.',
+  'front.escFact': 'sets the break aside',
 
   // stats
   'stats.label': 'Summary',
@@ -558,6 +593,7 @@ const en = {
   'pop.microRunning': 'Micro break in progress',
   'pop.breakRunning': 'Break in progress',
   'pop.away': 'You’re away. The clock stands still.',
+  'pop.asideUntil': 'until your break resumes',
   'pop.microIn': 'Micro break in {time}',
   'pop.sec': 'sec',
   'pop.minute_one': 'minute',
@@ -597,6 +633,10 @@ const en = {
   'island.hint.title': 'I’ll stay in the background',
   'island.hint.mac': 'You’ll find me in the <b>menu bar</b>, top right.',
   'island.hint.win': 'Bottom right in the <b>taskbar</b>, possibly under <b>^</b>.',
+  'island.aside.title': 'Break on hold',
+  'island.aside.sub': '<b>{left}</b> left · back in <b>{time}</b>',
+  'island.aside.soon': 'Your break resumes shortly',
+  'island.aside.soonSub': 'in <b>{time}</b> · <b>{left}</b> of break left',
 
   // break overlay
   'break.kind.long': 'Break',
@@ -653,6 +693,8 @@ const en = {
   'break.enter': 'Enter ↵',
   'break.thanks': 'Thank you.',
   'break.onward': 'Back to it.',
+  'break.aside': 'Set aside',
+  'break.asideAria': 'Set the break aside for now (Esc)',
 
   // tray & menus (main process)
   'tray.micro': 'Micro break',
@@ -660,7 +702,9 @@ const en = {
   'tray.paused': 'paused until {time}',
   'tray.away': 'you’re away',
   'tray.next': 'next break in {dur}',
+  'tray.aside': 'break on hold, back in {dur}',
   'menu.breakNow': 'Take a break now',
+  'menu.resumeBreak': 'Resume break',
   'menu.microNow': 'Micro break now',
   'menu.resume': 'Resume reminders',
   'menu.pause': 'Pause reminders',

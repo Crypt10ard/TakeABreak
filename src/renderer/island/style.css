@@ -97,6 +97,27 @@ body {
   padding-left: 4px;
 }
 
+/* A break waiting aside: after a moment only its timer stays, the rest opens up under the pointer. */
+.island__mini {
+  display: none;
+  padding-right: 13px;
+  color: var(--ink);
+  font: 500 14px var(--mono);
+  letter-spacing: 0.02em;
+}
+
+.island.is-compact .island__mini {
+  display: block;
+}
+
+.island.is-compact :is(.island__text, .island__actions) {
+  display: none;
+}
+
+.island.is-compact .island__body {
+  gap: 11px;
+}
+
 .island__actions .btn {
   height: 40px;
   padding: 0 16px;
@@ -220,6 +241,25 @@ body {
   height: 16px;
   border-radius: 2px;
   background: var(--ink-2);
+}
+
+/* Inside a ring the pause sign is a little smaller and breathes, like the break it stands for. */
+.ring ~ .icon-pause {
+  position: relative;
+  gap: 4px;
+  animation: hold 3.2s ease-in-out infinite;
+}
+
+.ring ~ .icon-pause i {
+  width: 3.5px;
+  height: 13px;
+  background: var(--ink);
+}
+
+@keyframes hold {
+  50% {
+    opacity: 0.45;
+  }
 }
 
 /* ----------------------------------------------------------- light theme */

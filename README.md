@@ -16,6 +16,7 @@ Atmung, Augenübungen, Dehnen und Bewegung.
 | **Geführte Pause** | Vollbild auf allen Monitoren. Ein atmender 3D-Orb führt durch das Programm: Atmung (Ruhig 4·6, Box, 4·7·8), Fernblick, Augen kreisen, Palming, Blinzeln, Schultern, Nacken, Strecken, Bewegen. Das Programm wird exakt auf deine Pausenlänge zugeschnitten. |
 | **Mikropausen** | 20-20-20-Regel für die Augen: alle 20 Min. für 20 s in die Ferne schauen – als dezente Kapsel oder im Vollbild. |
 | **Konsequenz** | *Sanft* (Klick zum Überspringen), *Ausgewogen* (gedrückt halten, max. 2× verschieben), *Strikt* (nur Notausstieg, 5 s halten). |
+| **Empfangsmodus** | Für alle, die erreichbar bleiben müssen (Empfang, Telefon, Support): Ein Klick auf *Kurz beiseite* oder **Esc** schiebt eine laufende Pause sofort weg, auch im strikten Modus. Sie wartet mit angehaltener Uhr als kleine Kapsel oben am Bildschirm und kommt nach einstellbarer Zeit (Standard 10 Min.) von selbst zurück, genau dort, wo sie aufgehört hat. Kurz davor kündigt die Kapsel sie an („Jetzt“ / „+10 Min.“). Bist du inzwischen länger weg, zählt das als Pause. |
 | **Abwesenheit** | Bist du länger weg (Mittag, Meeting, Bildschirm gesperrt, Laptop zugeklappt), zählt das als Pause und der Zähler beginnt neu. |
 | **Tray / Menüleiste** | Ein Ring im Symbol füllt sich bis zur nächsten Pause (orange kurz davor). Klick öffnet das Mini-Panel, Rechtsklick das Menü. Auf dem Mac optional mit Minuten-Countdown. |
 | **Bilanz** | Eingehaltene Pausen, Fokuszeit, Mikropausen, Serie und die letzten 7 Tage. |
@@ -44,7 +45,7 @@ Einen Mac-Installer kann man nicht unter Windows bauen. Zwei Wege:
   npm install
   npm run dist:mac
   ```
-  → `release/Atem-1.0.0.dmg` (Universal: Apple Silicon + Intel). Öffnen, Atem in *Programme* ziehen.
+  → `release/Atem-<version>.dmg` (Universal: Apple Silicon + Intel). Öffnen, Atem in *Programme* ziehen.
 - **Von GitHub bauen lassen:** Projekt in ein GitHub-Repository pushen, unter *Actions* den Workflow
   **Build** starten. Nach ein paar Minuten liegen `.dmg` und `.exe` als Artefakte bereit.
 
@@ -63,6 +64,8 @@ Falls der Autostart auf dem Mac nicht greift: *Systemeinstellungen → Allgemein
   Alles speichert sich sofort („Gespeichert ✓“ oben rechts).
 - **Pause sofort:** Tray-Panel → *Jetzt Pause machen*.
 - **In Ruhe gelassen werden:** Tray-Panel → *Pausieren* (30 Min., 1 Std., 2 Std., bis morgen früh).
+- **Empfangsmodus:** Einstellungen → *Konsequenz* → *Empfangsmodus*. Während einer Pause dann
+  *Kurz beiseite* oder **Esc**; zurückholen über die Kapsel, das Tray-Panel oder das Tray-Menü (*Pause fortsetzen*).
 - **Pause testen:** In den Einstellungen unter *Pausenprogramm* → *Pause testen* (60 s Vorschau, zählt nicht zur Statistik).
 - **Beenden:** Tray-Panel → *Beenden* (zweimal klicken) oder Rechtsklick aufs Symbol → *Atem beenden*.
 
@@ -89,6 +92,8 @@ npm run icons      # App-Icons aus SVG neu erzeugen
 Browser-Vorschau mit Parametern, z. B.:
 `/break/?kind=long&duration=300&t=110` (Pause, bei Sekunde 110) ·
 `/island/?kind=warn` · `/popover/?mode=paused` · jeweils mit `&theme=light&lang=en` kombinierbar.
+Empfangsmodus: `/break/?reception` · `/island/?kind=aside` (bzw. `&back=12` für die Ankündigung) ·
+`/popover/?mode=aside` · `/settings/?mode=aside`.
 
 Texte: alle Formulierungen stehen in `src/shared/strings.js` (Deutsch und Englisch, gleiche Schlüssel).
 `npm test` prüft, dass beide Sprachen vollständig sind und dieselben Platzhalter verwenden.

@@ -13,6 +13,8 @@ const island = $('#island');
 const body = $('#body');
 const RING = 2 * Math.PI * 20;
 const COLLAPSED = 66;
+/** A break waiting aside announces its return this long before it comes back. */
+const ASIDE_SOON_MS = 15_000;
 
 let settings = null;
 let payload = null;
@@ -23,6 +25,8 @@ let hideTimer = null;
 let microDone = false;
 let shownAt = 0;
 let exitTimeline = null;
+let compact = false;
+let compactTimer = null;
 
 const ICON = {
   ring: (warm) =>
@@ -37,8 +41,9 @@ const ICON = {
   close: '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2L2 10"/></svg>',
 };
 
-// Live countdowns are written into this span by tick().
+// Live countdowns are written into these spans by tick().
 const LEFT = '<span data-left></span>';
+const BACK = '<span data-back></span>';
 
 function template(p) {
   switch (p.kind) {
@@ -60,6 +65,27 @@ function template(p) {
       };
     case 'micro-done':
       return { icon: ICON.check, title: t('island.microDone.title'), sub: t('island.microDone.sub'), autoHide: 2000 };
+    case 'aside': {
+      // Front desk mode: the break waits up here. Shortly before it returns, the capsule says so.
+      const left = shortCountdown(p.left);
+      if (p.phase === 'soon') {
+        return {
+          icon: ICON.ring(true) + ICON.pause,
+          title: t('island.aside.soon'),
+          sub: t('island.aside.soonSub', { time: BACK, left }),
+          actions:
+            `<button class="btn btn--accent" data-act="aside-return">${t('island.now')}</button>` +
+            (p.returnMin ? `<button class="btn" data-act="aside-extend">${t('island.plus', { n: p.returnMin })}</button>` : ''),
+        };
+      }
+      return {
+        icon: ICON.ring(false) + ICON.pause,
+        title: t('island.aside.title'),
+        sub: t('island.aside.sub', { left, time: BACK }),
+        actions: `<button class="btn btn--accent" data-act="aside-return">${t('island.resume')}</button>`,
+        mini: BACK,
+      };
+    }
     case 'hello':
       return {
         icon: ICON.orb,
@@ -96,6 +122,7 @@ function render(p) {
   const tpl = template(p);
   body.innerHTML =
     `<div class="island__icon">${tpl.icon}</div>` +
+    (tpl.mini ? `<div class="island__mini tabular" aria-hidden="true">${tpl.mini}</div>` : '') +
     `<div class="island__text"><span class="island__title">${tpl.title}</span><span class="island__sub">${tpl.sub}</span></div>` +
     (tpl.actions ? `<div class="island__actions">${tpl.actions}</div>` : '');
   body.querySelectorAll('[data-act]').forEach((btn) => btn.addEventListener('click', () => act(btn.dataset.act)));
@@ -122,6 +149,8 @@ function measure() {
 }
 
 function show(p) {
+  // A waiting break that is about to return goes straight to its announcement.
+  if (p.kind === 'aside' && !p.phase && p.returnAt - Date.now() <= ASIDE_SOON_MS) p = { ...p, phase: 'soon' };
   const from = island.getBoundingClientRect().width;
   const wasVisible = visible && !exiting;
   // A new message cancels a running exit – its onComplete would otherwise close the window.
@@ -133,6 +162,9 @@ function show(p) {
   microDone = false;
   shownAt = Date.now();
   clearTimeout(hideTimer);
+  clearTimeout(compactTimer);
+  compact = false;
+  island.classList.remove('is-compact');
 
   const tpl = render(p);
   tick();
@@ -154,8 +186,32 @@ function show(p) {
     gsap.from(kids, { autoAlpha: 0, y: 8, filter: 'blur(4px)', duration: 0.6, ease: 'expo.out', stagger: 0.05 });
   }
 
-  if (settings?.sound.chime && (p.kind === 'warn' || p.kind === 'micro')) chime('soft');
+  const announces = p.kind === 'warn' || p.kind === 'micro' || (p.kind === 'aside' && p.phase === 'soon');
+  if (settings?.sound.chime && announces) chime('soft');
   if (tpl.autoHide) scheduleHide(tpl.autoHide);
+  if (tpl.mini) scheduleCompact(4200);
+}
+
+/** A break waiting aside shrinks to its timer after a moment – and opens up again under the pointer. */
+function scheduleCompact(ms) {
+  clearTimeout(compactTimer);
+  compactTimer = setTimeout(() => (hovering ? scheduleCompact(1200) : setCompact(true)), ms);
+}
+
+function setCompact(on) {
+  const mini = $('.island__mini', body);
+  if (on === compact || exiting || !mini) return;
+  compact = on;
+  const from = island.getBoundingClientRect().width;
+  island.classList.toggle('is-compact', on);
+  const width = measure();
+  gsap.fromTo(island, { width: from }, { width, duration: on ? 0.65 : 0.75, ease: 'expo.out', overwrite: 'auto' });
+  const shown = on ? [mini] : [...body.querySelectorAll('.island__text, .island__actions')];
+  gsap.fromTo(
+    shown,
+    { autoAlpha: 0, x: on ? -6 : 10, filter: 'blur(3px)' },
+    { autoAlpha: 1, x: 0, filter: 'blur(0px)', duration: 0.55, ease: 'expo.out', stagger: 0.05, delay: 0.08 },
+  );
 }
 
 function hide() {
@@ -202,6 +258,10 @@ function act(name) {
     case 'resume':
       api.action('resume');
       break;
+    case 'aside-return':
+    case 'aside-extend':
+      api.action(name);
+      break;
   }
 }
 
@@ -230,6 +290,16 @@ function tick() {
       if (settings?.sound.chime) chime('step');
       show({ kind: 'micro-done' });
     }
+  } else if (payload.kind === 'aside') {
+    const ms = Math.max(0, payload.returnAt - now);
+    const text = shortCountdown(ms);
+    body.querySelectorAll('[data-back]').forEach((el) => el.textContent !== text && (el.textContent = text));
+    if (payload.phase === 'soon') {
+      setRing(ms / ASIDE_SOON_MS);
+    } else {
+      setRing(ms / Math.max(1, payload.returnAt - payload.since));
+      if (ms <= ASIDE_SOON_MS) show({ ...payload, phase: 'soon' });
+    }
   }
 }
 
@@ -240,6 +310,14 @@ function setInteractive(value) {
   interactive = value;
   hovering = value;
   api.action('island-mouse', value);
+  if (payload?.kind === 'aside' && payload.phase !== 'soon') {
+    if (value) {
+      clearTimeout(compactTimer);
+      setCompact(false);
+    } else {
+      scheduleCompact(1400);
+    }
+  }
 }
 document.addEventListener('mousemove', (e) => setInteractive(Boolean(e.target.closest?.('.island'))));
 document.addEventListener('mouseleave', () => setInteractive(false));

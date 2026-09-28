@@ -309,7 +309,8 @@ html[data-platform='darwin'] .bar {
 }
 
 .bar__status[data-mode='soon'] .bar__pulse,
-.bar__status[data-mode='break'] .bar__pulse {
+.bar__status[data-mode='break'] .bar__pulse,
+.bar__status[data-mode='aside'] .bar__pulse {
   background: var(--warm);
 }
 
@@ -1647,6 +1648,263 @@ html[data-platform='darwin'] .bar {
   margin-top: 26px;
 }
 
+/* ------------------------------------------------------------ front desk */
+
+.front {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+  gap: 5vw;
+  align-items: center;
+  margin-top: 12vh;
+  padding: clamp(28px, 3.4vw, 52px);
+  border-radius: var(--radius-l);
+  background: var(--glass);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.front__label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.front__led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-4);
+  transition:
+    background 0.5s var(--ease-out),
+    box-shadow 0.5s var(--ease-out);
+}
+
+.front.is-on .front__led {
+  background: var(--accent);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent),
+    0 0 14px var(--accent);
+}
+
+.front__title {
+  margin: 18px 0 16px;
+  font-size: clamp(34px, 3.3vw, 54px);
+  line-height: 1.02;
+}
+
+.front__text {
+  max-width: 520px;
+  color: var(--ink-2);
+  font-size: 15.5px;
+  line-height: 1.6;
+}
+
+.front__rows {
+  margin-top: 30px;
+}
+
+/* The demo: a tiny screen where the break folds into its capsule, you look something up, it returns. */
+.fd {
+  margin: 0;
+  transition:
+    opacity 0.6s var(--ease-out),
+    filter 0.6s var(--ease-out);
+}
+
+.front:not(.is-on) .fd {
+  opacity: 0.5;
+  filter: saturate(0.3);
+}
+
+.fd__screen {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+  isolation: isolate;
+  border-radius: 14px;
+  background: var(--bg-elev-2);
+  box-shadow:
+    inset 0 0 0 1px var(--line-2),
+    var(--shadow-float);
+  container-type: inline-size;
+}
+
+.fd__app,
+.fd__overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.fd__top {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 10%;
+  border-bottom: 1px solid var(--line);
+}
+
+.fd__side {
+  position: absolute;
+  top: 10%;
+  bottom: 0;
+  left: 0;
+  width: 21%;
+  border-right: 1px solid var(--line);
+  background: var(--glass);
+}
+
+.fd__line {
+  position: absolute;
+  top: var(--y);
+  left: 28%;
+  width: var(--w);
+  height: 3.6%;
+  border-radius: 99px;
+  background: var(--line-2);
+}
+
+.fd__card {
+  position: absolute;
+  top: 52%;
+  left: 28%;
+  width: 46%;
+  height: 32%;
+  border-radius: 8px;
+  background: var(--glass-2);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.fd__card .fd__line {
+  left: 9%;
+  height: 11%;
+}
+
+.fd__hit {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 0 0 1.5px var(--accent),
+    0 0 22px color-mix(in srgb, var(--accent) 30%, transparent);
+  opacity: 0;
+}
+
+.fd__overlay {
+  background: radial-gradient(120% 100% at 50% 45%, rgb(11 13 16 / 0.93), rgb(5 6 8 / 0.985) 70%);
+}
+
+.fd__orb {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 21%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 30%, var(--a1), var(--a2) 58%, var(--a3));
+  box-shadow: 0 0 40px color-mix(in srgb, var(--a1) 42%, transparent);
+  translate: -50% -50%;
+}
+
+.fd__btn {
+  position: absolute;
+  top: 5%;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 9.5%;
+  padding: 0 3px 0 10px;
+  border-radius: 99px;
+  background: rgb(255 255 255 / 0.07);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  color: var(--ink);
+  font-size: clamp(8px, 2.7cqi, 11px);
+  font-weight: 500;
+  white-space: nowrap;
+  translate: -50% 0;
+}
+
+.fd__btn kbd {
+  display: grid;
+  height: 76%;
+  padding: 0 6px;
+  place-items: center;
+  border-radius: 99px;
+  background: rgb(255 255 255 / 0.08);
+  color: var(--ink-2);
+  font: 500 clamp(7px, 2.1cqi, 9px) var(--mono);
+}
+
+.fd__pill {
+  position: absolute;
+  top: 4%;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 12.5%;
+  padding: 0 11px 0 5px;
+  border-radius: 99px;
+  background: #0a0b0d;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 0.09),
+    0 8px 22px rgb(0 0 0 / 0.4);
+  color: #f2efe8;
+  font: 500 clamp(8px, 2.8cqi, 11.5px) var(--mono);
+  opacity: 0;
+  translate: -50% 0;
+}
+
+/* Progress ring made from a conic gradient, masked to a thin circle. */
+.fd__ring {
+  --p: 1;
+  --tone: var(--accent);
+  --track: rgb(255 255 255 / 0.12);
+  width: 1.9em;
+  height: 1.9em;
+  border-radius: 50%;
+  background: conic-gradient(var(--tone) calc(var(--p) * 1turn), var(--track) 0);
+  mask: radial-gradient(closest-side, transparent 68%, #000 70%);
+}
+
+.fd__pill.is-soon .fd__ring {
+  --tone: var(--warm);
+}
+
+.fd__cursor {
+  position: absolute;
+  top: 80%;
+  left: 78%;
+  width: 6%;
+  aspect-ratio: 1;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2.5 1.5v11.4l3-2.8 2.1 4.6 2-.9-2.1-4.5h4.2z' fill='%23fff' stroke='%23000' stroke-width='1' stroke-linejoin='round'/%3E%3C/svg%3E")
+    no-repeat center / contain;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 0.35));
+  transform-origin: 15% 10%;
+}
+
+[data-theme='light'] .fd__overlay {
+  background: radial-gradient(120% 100% at 50% 45%, rgb(247 245 240 / 0.95), rgb(232 229 222 / 0.99) 70%);
+}
+
+[data-theme='light'] .fd__btn {
+  background: rgb(255 255 255 / 0.7);
+}
+
+[data-theme='light'] .fd__btn kbd {
+  background: rgb(22 23 27 / 0.06);
+}
+
+[data-theme='light'] .fd__pill {
+  background: rgb(252 251 248 / 0.98);
+  box-shadow:
+    inset 0 0 0 1px rgb(22 23 27 / 0.08),
+    0 8px 22px rgb(22 23 27 / 0.14);
+  color: var(--ink);
+}
+
+[data-theme='light'] .fd__ring {
+  --track: rgb(22 23 27 / 0.1);
+}
+
 /* ------------------------------------------------------------------ stats */
 
 .tiles {
@@ -2055,7 +2313,7 @@ html.has-cursor * {
 /* ----------------------------------------------------------- light theme */
 
 /* On paper, surfaces separate by soft shadows instead of glow. */
-[data-theme='light'] :is(.tile, .week, .mood, .tryhold, .presets button, .stepper, .seg, .bar__status, .bar__lang) {
+[data-theme='light'] :is(.tile, .week, .mood, .tryhold, .front, .presets button, .stepper, .seg, .bar__status, .bar__lang) {
   box-shadow:
     inset 0 0 0 1px var(--line),
     var(--shadow-card);

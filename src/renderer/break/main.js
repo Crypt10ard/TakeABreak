@@ -30,6 +30,7 @@ let current = -1;
 let finished = false;
 let closing = false;
 let armedAt = Infinity; // input is ignored until the overlay has settled in
+let asideArmedAt = Infinity; // stepping aside may happen much sooner: the phone does not wait
 let segments = [];
 let doneLine = null; // [key, n] of the closing sentence, so it can be re-translated
 
@@ -286,6 +287,7 @@ async function finish() {
   setPhase('', '');
   gsap.to('.dim', { opacity: 0, duration: 1.5 });
   gsap.to(['#copy', '#bottom'], { autoAlpha: 0, y: -12, duration: 0.6, ease: 'power2.in' });
+  if (!$('#aside').hidden) gsap.to('#aside', { autoAlpha: 0, y: -8, duration: 0.5, ease: 'power2.in', onComplete: syncAside });
   Object.assign(target, { x: 0, y: 0.12, size: 0.3, amp: 0.1, halo: 1, opacity: 1, speed: 0.8, dust: 1.2 });
 
   if (info.kind === 'micro') {
@@ -381,16 +383,10 @@ function setupControls() {
   labelControls();
 
   $('#back').addEventListener('click', () => armed() && api.action('complete'));
+  $('#aside').addEventListener('click', stepAside);
+  syncAside();
 
-  window.addEventListener('keydown', (e) => {
-    if (!armed() || closing) return;
-    if (finished && ['Enter', ' ', 'Escape'].includes(e.key)) {
-      e.preventDefault();
-      api.action('complete');
-    } else if (!finished && e.key === 'Escape' && (info.escSkips || info.preview)) {
-      api.action('skip');
-    }
-  });
+  window.addEventListener('keydown', (e) => onKey(e.key, e));
 
   // The pointer fades away when you're not using it.
   let idleTimer = null;
@@ -401,6 +397,57 @@ function setupControls() {
   };
   window.addEventListener('pointermove', wake);
   wake();
+}
+
+/** Keys arrive from the page itself, or from the app when the overlay never got the focus. */
+function onKey(key, e) {
+  if (closing) return;
+  if (finished) {
+    if (armed() && ['Enter', ' ', 'Escape'].includes(key)) {
+      e?.preventDefault();
+      api.action('complete');
+    }
+    return;
+  }
+  if (key !== 'Escape') return;
+  if (settings.reception.enabled) stepAside();
+  else if (armed() && (info.escSkips || info.preview)) api.action('skip');
+}
+
+/* ----------------------------------------------------------- front desk */
+
+/** The "set aside" button exists in front desk mode, as long as the break is still running. */
+function syncAside() {
+  const btn = $('#aside');
+  const show = primary && settings.reception.enabled && !finished;
+  if (show === !btn.hidden) return;
+  btn.hidden = !show;
+  if (show) gsap.fromTo(btn, { autoAlpha: 0, y: -10 }, { autoAlpha: 1, y: 0, duration: 0.8, ease: 'expo.out' });
+}
+
+function stepAside() {
+  if (closing || finished || !settings.reception.enabled || performance.now() < asideArmedAt) return;
+  api.action('aside');
+}
+
+// From the middle of the light up to the capsule at the top of the screen.
+const liftToCapsule = () => -(innerHeight * 0.41 - 48);
+
+/** Everything folds up into the capsule at the top – quickly, because someone needs the screen. */
+function collapse() {
+  if (closing) return;
+  closing = true;
+  sea?.stop(0.25);
+  sea = null;
+  gsap.killTweensOf(['.backdrop', '.stage', '.gl', reveal]);
+  // The desktop is back almost at once; the light flies up into the capsule over it.
+  gsap
+    .timeline()
+    .to(['.backdrop', '.dim', '.grain'], { opacity: 0, duration: 0.3, ease: 'power2.out' }, 0)
+    .to('.stage > :not(.aside)', { autoAlpha: 0, y: -14, duration: 0.2, ease: 'power2.out' }, 0)
+    .to('.gl', { scale: 0.05, y: liftToCapsule(), transformOrigin: '50% 41%', duration: 0.42, ease: 'power3.in' }, 0)
+    .to('.gl', { autoAlpha: 0, duration: 0.1, ease: 'none' }, 0.34)
+    .to('#aside', { scale: 1.06, autoAlpha: 0, duration: 0.14, ease: 'power2.in' }, 0.3);
 }
 
 const kindLabel = () =>
@@ -450,14 +497,32 @@ async function boot() {
   if (primary) setupControls();
   await document.fonts?.ready;
 
-  // Enter softly: the desktop dims, the light appears, then the words.
-  gsap
-    .timeline()
-    .to('.backdrop', { opacity: 1, duration: 2.4, ease: 'power2.inOut' })
-    .to(reveal, { k: 1, duration: 2.6, ease: 'expo.out' }, 0.5)
-    .to('.stage', { opacity: 1, duration: 1.4, ease: 'power2.out' }, 1);
-  armedAt = performance.now() + 1500;
-  sound('start');
+  if (info.returning) {
+    // Back from the capsule: the light drops out of it and unfolds where it left off.
+    reveal.k = 1;
+    gsap
+      .timeline()
+      .to('.backdrop', { opacity: 1, duration: 1, ease: 'power2.out' })
+      .fromTo(
+        '.gl',
+        { scale: 0.05, y: liftToCapsule(), transformOrigin: '50% 41%' },
+        { scale: 1, y: 0, duration: 1.4, ease: 'expo.out' },
+        0.05,
+      )
+      .to('.stage', { opacity: 1, duration: 0.9, ease: 'power2.out' }, 0.5);
+    armedAt = performance.now() + 900;
+    sound('soft');
+  } else {
+    // Enter softly: the desktop dims, the light appears, then the words.
+    gsap
+      .timeline()
+      .to('.backdrop', { opacity: 1, duration: 2.4, ease: 'power2.inOut' })
+      .to(reveal, { k: 1, duration: 2.6, ease: 'expo.out' }, 0.5)
+      .to('.stage', { opacity: 1, duration: 1.4, ease: 'power2.out' }, 1);
+    armedAt = performance.now() + 1500;
+    sound('start');
+  }
+  asideArmedAt = performance.now() + 450;
 
   gsap.ticker.add(frame);
   if (!inElectron) {
@@ -469,9 +534,12 @@ async function boot() {
     settings = s;
     setTheme(s.theme);
     if (setLang(s.language)) relabel();
+    if (primary) syncAside();
   });
   api.onEvent((e) => {
     if (e.type === 'break:finished') finish();
+    if (e.type === 'break:aside') collapse();
+    if (e.type === 'break:key' && primary) onKey(e.key);
     if (e.type === 'break:closing' && !closing) {
       closing = true;
       sea?.stop(0.8);

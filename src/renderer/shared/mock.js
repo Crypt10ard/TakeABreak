@@ -15,6 +15,7 @@ const DEFAULTS = {
   strictness: 'balanced',
   warning: { enabled: true, seconds: 60 },
   snooze: { minutes: 5 },
+  reception: { enabled: params.has('reception'), returnMin: 10 },
   idle: { enabled: true, thresholdMin: 5 },
   sound: { chime: true, ambient: true, volume: 0.6 },
   autostart: true,
@@ -48,11 +49,14 @@ export function createMock() {
   // Query parameters always win, so screenshots are reproducible.
   if (params.get('theme')) settings.theme = params.get('theme');
   if (params.get('lang')) settings.language = params.get('lang');
+  if (params.has('reception')) settings.reception = { ...settings.reception, enabled: true };
 
   const listeners = { state: new Set(), settings: new Set(), event: new Set() };
   const emit = (channel, data) => listeners[channel].forEach((cb) => cb(data));
 
-  let mode = params.get('mode') || 'work';
+  // mode=aside: a break that waits aside (front desk mode).
+  const asideMode = params.get('mode') === 'aside';
+  let mode = asideMode ? 'break' : params.get('mode') || 'work';
   let workStart = Date.now() - Number(params.get('elapsed') ?? 32) * MIN;
   let pausedUntil = mode === 'paused' ? Date.now() + 42 * MIN : null;
 
@@ -78,6 +82,10 @@ export function createMock() {
       escSkips: rules.escSkips,
       snoozesLeft: 2,
       snoozeMin: settings.snooze.minutes,
+      reception: settings.reception.enabled,
+      returnMin: settings.reception.returnMin,
+      returning: params.has('returning'),
+      aside: asideMode ? (breakInfo.aside ??= { since: Date.now() - 24_000, returnAt: Date.now() + 9.6 * MIN }) : null,
     };
   };
 
@@ -103,6 +111,8 @@ export function createMock() {
     setTimeout(() => {
       const kind = params.get('kind');
       const now = Date.now();
+      // kind=aside&back=12 shows a waiting break 12 s before it returns.
+      const back = Number(params.get('back') || 598) * 1000;
       const payload =
         kind === 'micro'
           ? { ...breakInfo(), kind: 'micro' }
@@ -110,7 +120,9 @@ export function createMock() {
             ? { breakAt: now + 58_000, snoozesLeft: 2, snoozeMin: 5 }
             : kind === 'paused'
               ? { until: now + 60 * MIN }
-              : { nextBreakAt: now + 55 * MIN, awayMs: 12 * MIN };
+              : kind === 'aside'
+                ? { since: now + back - 10 * MIN, returnAt: now + back, left: 192_000, returnMin: 10 }
+                : { nextBreakAt: now + 55 * MIN, awayMs: 12 * MIN };
       emit('event', { type: 'island', kind, ...payload });
     }, 400);
   }
@@ -169,6 +181,8 @@ export function createMock() {
         workStart = Date.now();
       } else if (name === 'break-now' || name === 'complete') {
         workStart = Date.now();
+      } else if (name === 'aside' && settings.reception.enabled) {
+        emit('event', { type: 'break:aside' });
       }
       emit('state', snapshot());
       return true;

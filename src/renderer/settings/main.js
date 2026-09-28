@@ -17,6 +17,7 @@ import { createCycle } from './cycle.js';
 import { createEye } from './eye.js';
 import { breathVisual, eyesVisual, stretchVisual, moveVisual } from './visuals.js';
 import { createCursor } from './cursor.js';
+import { createFrontDemo } from './front.js';
 
 gsap.registerPlugin(ScrollTrigger, ScrollSmoother, SplitText);
 
@@ -341,6 +342,7 @@ function setupHero() {
 
   breakBtn.addEventListener('click', () => {
     if (snap?.mode === 'paused') api.action('resume');
+    else if (snap?.break?.aside) api.action('aside-return');
     else if (snap?.mode !== 'break') api.action('break-now');
   });
 
@@ -398,6 +400,18 @@ function renderHero() {
       break;
     case 'break': {
       const b = snap.break;
+      if (b?.aside) {
+        // Front desk mode: the break waits aside and counts down to its return.
+        const { since, returnAt } = b.aside;
+        label = t('hero.asideRunning');
+        time = countdown(returnAt - now);
+        meter = 1 - (returnAt - now) / Math.max(1, returnAt - since);
+        sub = t('hero.asideSub');
+        status = t('status.aside');
+        mode = 'aside';
+        action = t('hero.resumeBreak');
+        break;
+      }
       label = b?.kind === 'micro' ? t('hero.microRunning') : t('hero.breakRunning');
       time = countdown((b?.endsAt ?? now) - now);
       meter = b ? (now - b.startedAt) / b.duration : 0;
@@ -705,6 +719,14 @@ const STRICT_FACTS = {
   strict: ['skip', 'snooze', 'emergency'],
 };
 const HOLD_MS = { gentle: 0, balanced: 1600, strict: 5000 };
+/** Re-renders the facts list, e.g. when front desk mode changes what Esc does. */
+let refreshStrictFacts = () => {};
+
+// In front desk mode Esc sets the break aside – in every strictness.
+const strictFacts = (mode) =>
+  settings.reception.enabled && !STRICT_FACTS[mode].includes('esc') ? [...STRICT_FACTS[mode], 'esc'] : STRICT_FACTS[mode];
+const strictFact = (mode, fact) =>
+  fact === 'esc' && settings.reception.enabled ? t('front.escFact') : t(`strict.${mode}.${fact}`);
 
 function setupStrictness() {
   const quote = $('#strict-quote');
@@ -729,8 +751,8 @@ function setupStrictness() {
     const apply = () => {
       split?.revert();
       quote.innerHTML = t(`strict.${mode}.quote`);
-      facts.innerHTML = STRICT_FACTS[mode]
-        .map((fact) => `<li><span>${t(`strict.fact.${fact}`)}</span><b>${t(`strict.${mode}.${fact}`)}</b></li>`)
+      facts.innerHTML = strictFacts(mode)
+        .map((fact) => `<li><span>${t(`strict.fact.${fact}`)}</span><b>${strictFact(mode, fact)}</b></li>`)
         .join('');
       label.textContent = t(`strict.${mode}.button`);
       hint.textContent = t(`strict.${mode}.hint`);
@@ -752,6 +774,7 @@ function setupStrictness() {
     },
   });
   render(settings.strictness, false);
+  refreshStrictFacts = () => render(settings.strictness, false);
 
   const syncWarn = () =>
     $$('[data-needs-warn]').forEach((row) => row.classList.toggle('is-disabled', !settings.warning.enabled));
@@ -786,6 +809,35 @@ function setupStrictness() {
     warnStepper.refresh();
     snoozeStepper.refresh();
   });
+}
+
+/* ----------------------------------------------------------- front desk */
+
+function setupFrontDesk() {
+  const block = $('#front');
+  const sync = () => {
+    block.classList.toggle('is-on', settings.reception.enabled);
+    $$('[data-needs-reception]').forEach((row) => row.classList.toggle('is-disabled', !settings.reception.enabled));
+  };
+  bindToggle($('#reception-enabled'), {
+    value: settings.reception.enabled,
+    onChange: (v) => {
+      save({ reception: { enabled: v } });
+      sync();
+      refreshStrictFacts();
+    },
+  });
+  const returnStepper = bindStepper($('#reception-return'), {
+    value: settings.reception.returnMin,
+    min: 1,
+    max: 30,
+    step: 1,
+    format: (v) => t('strict.min', { n: v }),
+    onChange: (v) => save({ reception: { returnMin: v } }),
+  });
+  sync();
+  createFrontDemo($('#front-demo'), { returnMin: () => settings.reception.returnMin });
+  onRelabel(() => returnStepper.refresh());
 }
 
 /* ---------------------------------------------------------------- stats */
@@ -1035,6 +1087,7 @@ async function boot() {
   setupProgram(); // creates the pin – everything below measures after it
   setupOrb();
   setupStrictness();
+  setupFrontDesk();
   setupStats();
   setupSystem();
   applyI18n(document); // picks up texts that setup code switched (e.g. the dev-mode autostart note)

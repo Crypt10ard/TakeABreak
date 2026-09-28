@@ -17,7 +17,7 @@ function setup(overrides = {}) {
     addFocus: (s) => (counts.focusSec = (counts.focusSec || 0) + s),
   };
   const s = new Scheduler({ getSettings: () => settings, getIdleSeconds: () => idle, stats, now: () => now });
-  for (const name of ['warn', 'warn-cancel', 'break-start', 'break-finished', 'break-end', 'idle-start', 'idle-end', 'paused', 'resumed']) {
+  for (const name of ['warn', 'warn-cancel', 'break-start', 'break-finished', 'break-end', 'aside', 'aside-end', 'idle-start', 'idle-end', 'paused', 'resumed']) {
     s.on(name, (payload) => events.push({ name, payload, at: now }));
   }
   /** Advance the clock second by second, ticking like the real app. */
@@ -178,6 +178,97 @@ test('shortening the interval never schedules a break in the past, and is revers
   assert.ok(t.s.nextBreakAt >= t.now + MIN - 1, 'at least one minute of grace');
   t.setSettings({ work: { intervalMin: 55 } });
   assert.equal(t.s.nextBreakAt, t.s.workStart + 55 * MIN);
+});
+
+const NO_MICRO = { enabled: false, intervalMin: 20, durationSec: 20, style: 'capsule' };
+const FRONT_DESK = { enabled: true, returnMin: 10 };
+
+test('front desk mode: a break set aside waits, then continues exactly where it stopped', () => {
+  const t = setup({ reception: FRONT_DESK, micro: NO_MICRO });
+  t.advance(55 * MIN);
+  t.advance(2 * MIN); // 2 of 5 minutes done
+  assert.equal(t.s.setAside(), true);
+  assert.ok(t.s.current.aside);
+  assert.equal(t.s.snapshot().break.aside.returnAt, t.now + 10 * MIN);
+  t.advance(9 * MIN); // busy at the desk – but active, so not away
+  assert.equal(t.s.mode, 'break');
+  assert.ok(t.s.current.aside, 'still waiting');
+  assert.equal(t.s.current.finished, false, 'the break clock stood still');
+  t.advance(1 * MIN);
+  assert.equal(t.s.current.aside, null, 'back after 10 minutes');
+  assert.ok(t.names().includes('aside-end'));
+  assert.equal(t.s.current.endsAt - t.now, 3 * MIN, 'the remaining 3 minutes are still there');
+  t.advance(3 * MIN + 1000);
+  assert.equal(t.s.current.finished, true);
+  assert.equal(t.counts.taken, 1);
+});
+
+test('without front desk mode a break cannot be set aside', () => {
+  const t = setup({ micro: NO_MICRO });
+  t.advance(55 * MIN);
+  assert.equal(t.s.setAside(), false);
+  assert.equal(t.s.current.aside, undefined);
+});
+
+test('a waiting break can be called back early, or pushed back once more', () => {
+  const t = setup({ reception: FRONT_DESK, micro: NO_MICRO });
+  t.advance(55 * MIN);
+  t.s.setAside();
+  t.advance(3 * MIN);
+  assert.equal(t.s.extendAside(), true);
+  assert.equal(t.s.current.aside.returnAt, t.now + 10 * MIN, 'another full round');
+  t.advance(1 * MIN);
+  assert.equal(t.s.resumeAside(), true);
+  assert.equal(t.s.current.aside, null);
+  assert.equal(t.s.current.endsAt - t.now, 5 * MIN, 'nothing of the break was used up');
+});
+
+test('a waiting break never comes back onto a locked screen', () => {
+  const t = setup({ reception: FRONT_DESK, micro: NO_MICRO, idle: { enabled: false, thresholdMin: 5 } });
+  t.advance(55 * MIN);
+  t.s.setAside();
+  t.s.setLocked('screen', true);
+  t.advance(12 * MIN);
+  assert.ok(t.s.current.aside, 'still waiting while locked');
+  t.s.setLocked('screen', false);
+  t.advance(1000);
+  assert.equal(t.s.current.aside, null);
+});
+
+test('if nobody is at the desk while a break waits, that becomes time away', () => {
+  const t = setup({ reception: FRONT_DESK, micro: NO_MICRO });
+  t.advance(55 * MIN);
+  t.advance(1 * MIN);
+  t.s.setAside();
+  t.advance(6 * MIN, { idleGrows: true }); // counts as away after 5 minutes
+  assert.equal(t.s.mode, 'idle');
+  assert.equal(t.events.find((e) => e.name === 'break-end').payload.reason, 'away');
+  t.setIdle(0);
+  t.advance(1000);
+  assert.equal(t.s.mode, 'work');
+  assert.equal(t.counts.natural, 1, 'the time away counts as the break');
+  assert.equal(t.counts.skipped, undefined);
+  assert.equal(t.counts.taken, undefined);
+});
+
+test('skipping a waiting break only counts the time really spent on it', () => {
+  const t = setup({ reception: FRONT_DESK, micro: NO_MICRO });
+  t.advance(55 * MIN);
+  t.advance(1 * MIN); // 20 % done
+  t.s.setAside();
+  t.advance(8 * MIN); // waiting is not break time
+  t.s.skipBreak();
+  assert.equal(t.counts.skipped, 1);
+  assert.equal(t.counts.taken, undefined);
+});
+
+test('a micro break set aside simply makes way', () => {
+  const t = setup({ reception: FRONT_DESK });
+  t.advance(20 * MIN);
+  assert.equal(t.s.current.kind, 'micro');
+  assert.equal(t.s.setAside(), true);
+  assert.equal(t.s.mode, 'work');
+  assert.equal(t.counts.microSkipped, 1);
 });
 
 test('sanitizeSettings clamps nonsense and keeps at least one activity', () => {

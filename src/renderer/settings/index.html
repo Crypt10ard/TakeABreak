@@ -333,6 +333,50 @@
                 </div>
               </aside>
             </div>
+
+            <!-- front desk mode -->
+            <div class="front" id="front" data-reveal>
+              <div class="front__copy">
+                <p class="label front__label">
+                  <span class="front__led" aria-hidden="true"></span><span data-i18n="front.label"></span>
+                </p>
+                <h3 class="front__title display" data-i18n-html="front.title"></h3>
+                <p class="front__text" data-i18n="front.text"></p>
+                <div class="rows front__rows">
+                  <div class="row">
+                    <div class="row__text">
+                      <h4 data-i18n="front.enable"></h4>
+                      <p data-i18n="front.enableDesc"></p>
+                    </div>
+                    <button class="toggle" id="reception-enabled" data-i18n-aria="front.enable"></button>
+                  </div>
+                  <div class="row" data-needs-reception>
+                    <div class="row__text">
+                      <h4 data-i18n="front.return"></h4>
+                      <p data-i18n="front.returnDesc"></p>
+                    </div>
+                    <div id="reception-return"></div>
+                  </div>
+                </div>
+              </div>
+              <figure class="fd" id="front-demo" aria-hidden="true">
+                <div class="fd__screen">
+                  <div class="fd__app">
+                    <span class="fd__top"></span>
+                    <span class="fd__side"></span>
+                    <span class="fd__line" style="--y: 19%; --w: 38%"></span>
+                    <span class="fd__line" style="--y: 28%; --w: 56%"></span>
+                    <span class="fd__line" style="--y: 37%; --w: 47%"></span>
+                    <span class="fd__card"><i class="fd__hit"></i><span class="fd__line" style="--y: 30%; --w: 60%"></span><span class="fd__line" style="--y: 58%; --w: 38%"></span></span>
+                  </div>
+                  <div class="fd__overlay"></div>
+                  <span class="fd__orb"></span>
+                  <span class="fd__btn"><span data-i18n="break.aside"></span><kbd>Esc</kbd></span>
+                  <span class="fd__pill"><i class="fd__ring"></i><span class="fd__time tabular">10:00</span></span>
+                  <span class="fd__cursor"></span>
+                </div>
+              </figure>
+            </div>
           </section>
 
           <!-- 05 stats ----------------------------------------------------->

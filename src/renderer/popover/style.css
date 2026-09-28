@@ -78,7 +78,8 @@ html[data-platform='darwin'] .card {
 }
 
 .chip[data-mode='soon'] i,
-.chip[data-mode='break'] i {
+.chip[data-mode='break'] i,
+.chip[data-mode='aside'] i {
   background: var(--warm);
   box-shadow: 0 0 10px var(--warm);
 }
@@ -128,7 +129,8 @@ html[data-platform='darwin'] .card {
   transition: stroke 0.8s;
 }
 
-.dial[data-mode='soon'] .dial__fill {
+.dial[data-mode='soon'] .dial__fill,
+.dial[data-mode='aside'] .dial__fill {
   stroke: var(--warm);
   filter: drop-shadow(0 0 8px color-mix(in srgb, var(--warm) 60%, transparent));
 }

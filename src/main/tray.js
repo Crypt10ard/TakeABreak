@@ -91,6 +91,11 @@ class TrayController {
 
     switch (snap.mode) {
       case 'break':
+        if (snap.break?.aside) {
+          state = 'paused';
+          status = t('tray.aside', { dur: formatDuration(snap.break.aside.returnAt - now) });
+          break;
+        }
         state = 'break';
         status = snap.break?.kind === 'micro' ? t('tray.micro') : t('tray.break');
         break;
@@ -138,11 +143,14 @@ class TrayController {
   #menu() {
     const mode = this.snap?.mode;
     const inBreak = mode === 'break';
+    const aside = Boolean(this.snap?.break?.aside);
     const act = (name, payload) => () => this.onAction(name, payload);
     return Menu.buildFromTemplate([
       { label: this.status || 'Atem', enabled: false },
       { type: 'separator' },
-      { label: t('menu.breakNow'), enabled: !inBreak, click: act('break-now') },
+      aside
+        ? { label: t('menu.resumeBreak'), click: act('aside-return') }
+        : { label: t('menu.breakNow'), enabled: !inBreak, click: act('break-now') },
       { label: t('menu.microNow'), enabled: !inBreak, click: act('micro-now') },
       mode === 'paused'
         ? { label: t('menu.resume'), click: act('resume') }

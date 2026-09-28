@@ -114,6 +114,86 @@ body.is-idle * {
   letter-spacing: 0.04em;
 }
 
+/* ----------------------------------------------------------------- aside */
+
+/* Front desk mode. It sits right where the capsule appears once the break has stepped aside. */
+.aside {
+  position: absolute;
+  top: calc(clamp(24px, 4vh, 44px) - 10px);
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 42px;
+  padding: 0 7px 0 15px;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.05);
+  box-shadow: inset 0 0 0 1px var(--line-2);
+  backdrop-filter: blur(14px);
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  white-space: nowrap;
+  translate: -50% 0;
+  transition:
+    background 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out);
+}
+
+.aside:hover {
+  background: rgb(255 255 255 / 0.1);
+  box-shadow: inset 0 0 0 1px var(--ink-4);
+}
+
+.aside:active {
+  scale: 0.97;
+}
+
+.aside__icon {
+  width: 18px;
+  height: 18px;
+  overflow: visible;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.aside__icon path {
+  transition: translate 0.5s var(--ease-spring);
+}
+
+.aside:hover .aside__icon path {
+  translate: 0 -2.5px;
+}
+
+.aside__key {
+  display: grid;
+  height: 28px;
+  min-width: 36px;
+  padding: 0 9px;
+  place-items: center;
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.07);
+  color: var(--ink-2);
+  font: 500 10.5px var(--mono);
+  letter-spacing: 0.08em;
+}
+
+[data-theme='light'] .aside {
+  background: rgb(255 255 255 / 0.62);
+}
+
+[data-theme='light'] .aside:hover {
+  background: rgb(255 255 255 / 0.9);
+}
+
+[data-theme='light'] .aside__key {
+  background: rgb(22 23 27 / 0.06);
+}
+
 /* ----------------------------------------------------------------- phase */
 
 .phase {

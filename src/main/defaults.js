@@ -14,6 +14,8 @@ const DEFAULT_SETTINGS = {
   strictness: 'balanced',
   warning: { enabled: true, seconds: 60 },
   snooze: { minutes: 5 },
+  // Front desk mode: a running break can be set aside with one click and comes back by itself.
+  reception: { enabled: false, returnMin: 10 },
   idle: { enabled: true, thresholdMin: 5 },
   sound: { chime: true, ambient: true, volume: 0.6 },
   autostart: true,
@@ -71,6 +73,10 @@ function sanitizeSettings(s) {
       seconds: Math.round(clamp(s.warning?.seconds, 10, 300, d.warning.seconds)),
     },
     snooze: { minutes: Math.round(clamp(s.snooze?.minutes, 1, 30, d.snooze.minutes)) },
+    reception: {
+      enabled: bool(s.reception?.enabled, d.reception.enabled),
+      returnMin: Math.round(clamp(s.reception?.returnMin, 1, 30, d.reception.returnMin)),
+    },
     idle: {
       enabled: bool(s.idle?.enabled, d.idle.enabled),
       thresholdMin: Math.round(clamp(s.idle?.thresholdMin, 1, 30, d.idle.thresholdMin)),

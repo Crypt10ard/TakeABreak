@@ -65,6 +65,17 @@ function render() {
       break;
     case 'break': {
       const b = snap.break;
+      if (b?.aside) {
+        // Front desk mode: the break waits aside – count down to its return.
+        const { since, returnAt } = b.aside;
+        value = amount(returnAt - now);
+        caption = t('pop.asideUntil');
+        chip = t('status.aside');
+        primary = t('hero.resumeBreak');
+        mode = 'aside';
+        progress = 1 - (returnAt - now) / Math.max(1, returnAt - since);
+        break;
+      }
       value = amount((b?.endsAt ?? now) - now);
       caption = b?.kind === 'micro' ? t('pop.microRunning') : t('pop.breakRunning');
       chip = t('status.break');
@@ -148,6 +159,7 @@ function setup() {
 
   $('#primary').addEventListener('click', () => {
     if (snap?.mode === 'paused') api.action('resume');
+    else if (snap?.break?.aside) api.action('aside-return');
     else api.action('break-now');
   });
   document.querySelectorAll('[data-pause]').forEach((b) =>
